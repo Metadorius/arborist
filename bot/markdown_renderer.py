@@ -55,8 +55,8 @@ def render_message(
                 {"name": f.name, "value": f.value, "inline": f.inline}
                 for f in embed.fields
             ],
-            "image_url": str(embed.image.url) if embed.image.url else None,
-            "thumbnail_url": str(embed.thumbnail.url) if embed.thumbnail.url else None,
+            "image_url": str(embed.image.url) if embed.image and embed.image.url else None,
+            "thumbnail_url": str(embed.thumbnail.url) if embed.thumbnail and embed.thumbnail.url else None,
         }
         embeds.append(e)
 

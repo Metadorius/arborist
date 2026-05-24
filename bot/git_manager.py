@@ -6,8 +6,6 @@ from pathlib import Path
 
 import git
 
-from .config import GIT_USER_NAME, GIT_USER_EMAIL, GIT_REMOTE_URL, GIT_BRANCH
-
 logger = logging.getLogger("arborist.git")
 
 
@@ -17,13 +15,13 @@ class GitManager:
     def __init__(self, repo_dir: Path, debounce_seconds: int = 300) -> None:
         self._repo_dir = repo_dir
         self._debounce = debounce_seconds
-        self._last_commit = 0.0
+        self._last_commit = time.time()  # prevent immediate flush on first call
         self._pending = False
         self._repo: git.Repo | None = None
         self._has_unpushed = False
 
     def ensure_repo(self) -> git.Repo:
-        """Clone or open the git repo in the output directory."""
+        """Open or init a git repo in the output directory."""
         if self._repo is not None:
             return self._repo
 
@@ -33,15 +31,34 @@ class GitManager:
             logger.info("Opening existing repo at %s", self._repo_dir)
             self._repo = git.Repo(self._repo_dir)
         else:
-            logger.info("Cloning %s into %s", GIT_REMOTE_URL, self._repo_dir)
+            logger.info("Initializing repo at %s", self._repo_dir)
             self._repo_dir.mkdir(parents=True, exist_ok=True)
-            self._repo = git.Repo.clone_from(GIT_REMOTE_URL, self._repo_dir, branch=GIT_BRANCH)
+            self._repo = git.Repo.init(self._repo_dir, initial_branch="main")
 
-        with self._repo.config_writer() as cw:
-            cw.set_value("user", "name", GIT_USER_NAME)
-            cw.set_value("user", "email", GIT_USER_EMAIL)
+            # Create initial empty commit so HEAD resolves
+            self._repo.index.commit("Initialize repository")
 
+            # Try to set remote if configured
+            try:
+                from .config import get_git_remote_url, get_git_branch
+                self._remote_url = get_git_remote_url()
+                self._branch = get_git_branch()
+                origin = self._repo.create_remote("origin", self._remote_url)
+            except (ValueError, Exception):
+                self._remote_url = "local"
+                self._branch = "main"
+                logger.info("No remote configured, working locally")
+
+        self._set_user_config()
         return self._repo
+
+    def _set_user_config(self) -> None:
+        from .config import get_git_user_name, get_git_user_email
+        if self._repo is None:
+            return
+        with self._repo.config_writer() as cw:
+            cw.set_value("user", "name", get_git_user_name())
+            cw.set_value("user", "email", get_git_user_email())
 
     def mark_changed(self) -> None:
         """Signal that content has changed. Triggers a debounced commit."""
@@ -62,11 +79,15 @@ class GitManager:
             # Stage all changes
             repo.index.add("*")
 
-            # Skip if nothing changed
-            if not repo.index.diff("HEAD"):
-                logger.debug("Nothing to commit")
-                self._pending = False
-                return
+            # Check if anything changed — skip if first commit (no HEAD)
+            try:
+                if not repo.index.diff("HEAD"):
+                    logger.debug("Nothing to commit")
+                    self._pending = False
+                    return
+            except (ValueError, git.GitCommandError):
+                # Fresh repo with no commits yet — proceed
+                pass
 
             # Commit
             timestamp = time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())
@@ -74,10 +95,11 @@ class GitManager:
             repo.index.commit(commit_msg)
             logger.info("Committed: %s", commit_msg)
 
-            # Push
-            origin = repo.remotes.origin
-            origin.push()
-            logger.info("Pushed to %s (%s)", GIT_REMOTE_URL, GIT_BRANCH)
+            # Push (skip if no remote, e.g. in tests)
+            if hasattr(repo, "remotes") and repo.remotes:
+                origin = repo.remotes.origin
+                origin.push()
+                logger.info("Pushed to %s (%s)", self._remote_url, self._branch)
 
             self._last_commit = time.time()
             self._pending = False

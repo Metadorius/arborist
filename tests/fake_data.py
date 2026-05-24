@@ -1,0 +1,240 @@
+"""Shared fake data + helper for generating a fake archive site."""
+import asyncio
+import shutil
+from pathlib import Path
+from unittest.mock import patch
+
+from bot.archiver import Archiver
+
+
+# ---------------------------------------------------------------------------
+# Fake discord.py objects
+# ---------------------------------------------------------------------------
+
+class FakeUser:
+    def __init__(self, id: int, name: str):
+        self.id = id
+        self.name = name
+    def __str__(self) -> str: return self.name
+    @property
+    def display_avatar(self) -> None: return None
+
+
+class FakeAttachment:
+    def __init__(self, id: int, filename: str, size: int = 5000, content_type: str = "image/png"):
+        self.id = id
+        self.filename = filename
+        self.size = size
+        self.url = f"https://cdn.discordapp.com/attachments/1/{id}/{filename}"
+        self.content_type = content_type
+
+
+class FakeField:
+    def __init__(self, name: str, value: str, inline: bool = False):
+        self.name = name
+        self.value = value
+        self.inline = inline
+
+
+class FakeEmbed:
+    def __init__(self, title=None, description=None, url=None, color=None,
+                 fields=None, image=None, thumbnail=None):
+        self.title = title
+        self.description = description
+        self.url = url
+        self.color = type("Color", (), {"value": 0x4ade80})() if color else type("Color", (), {"value": None})()
+        self.fields = fields or []
+        class Img: url = "https://cdn.discordapp.com/embed/example.png"
+        self.image = Img() if image else None
+        self.thumbnail = Img() if thumbnail else None
+
+
+class FakeReaction:
+    def __init__(self, emoji: str, count: int = 1):
+        self.emoji = type("E", (), {"__str__": lambda s: emoji})()
+        self.count = count
+
+
+import datetime as _dt
+def _utc(*a):
+    return _dt.datetime(*a, tzinfo=_dt.timezone.utc)
+
+
+class FakeMessage:
+    def __init__(self, id: int, content: str, channel, author: FakeUser,
+                 attachments=None, embeds=None, reactions=None,
+                 created_at=None, edited_at=None):
+        self.id = id
+        self.content = content
+        self.channel = channel
+        self.author = author
+        self.attachments = attachments or []
+        self.embeds = embeds or []
+        self.reactions = reactions or []
+        self.created_at = created_at or _utc(2026, 5, 24, 12, 0)
+        self.edited_at = edited_at
+        self.pinned = False
+        self.jump_url = f"https://discord.com/channels/1/{channel.id}/{id}"
+
+
+class FakeThread:
+    def __init__(self, id: int, name: str, parent_id: int, parent, messages: list):
+        self.id = id
+        self.name = name
+        self.parent_id = parent_id
+        self.parent = parent
+        self._messages = messages
+    def history(self, limit=None, oldest_first=True):
+        async def _gen():
+            for m in self._messages:
+                yield m
+        return _gen()
+
+
+class FakeChannel:
+    def __init__(self, id: int, name: str, threads=None):
+        self.id = id
+        self.name = name
+        self._threads = threads or []
+        self._archived = []
+    @property
+    def threads(self): return self._threads
+    def archived_threads(self, limit=None):
+        async def _gen():
+            for t in self._archived:
+                yield t
+        return _gen()
+
+
+class FakeClient:
+    def __init__(self, channels: dict):
+        self._channels = channels
+    def get_channel(self, cid): return self._channels.get(cid)
+    async def fetch_channel(self, cid): return self._channels.get(cid)
+
+
+# ---------------------------------------------------------------------------
+# Data builder
+# ---------------------------------------------------------------------------
+
+def build_fake_data():
+    """Build and return (FakeClient, channels_dict)."""
+    alice = FakeUser(100, "Alice")
+    bob = FakeUser(101, "BobBot")
+    charlie = FakeUser(102, "Charlie")
+
+    ch_assets = FakeChannel(111, "assets")
+    ch_tuts = FakeChannel(222, "tutorials")
+    ch_show = FakeChannel(333, "show-and-tell")
+
+    thread_assets = FakeThread(10001, "Cool Asset Pack v2", 111, ch_assets, [])
+    thread_tuts = FakeThread(20001, "Blender Basics -- Intermediate", 222, ch_tuts, [])
+    thread_show = FakeThread(30001, "Procedural Texture Experiment", 333, ch_show, [])
+
+    # --- assets ---
+    assets_msg1 = FakeMessage(1001,
+        "Hey everyone! I just released **Cool Asset Pack v2**!\n\n"
+        "This pack includes:\n- 50 high-res textures\n- 10 3D models\n- 5 sound effects\n\n"
+        "Check the attachment below!",
+        thread_assets, alice,
+        attachments=[FakeAttachment(9001, "preview.png"),
+                     FakeAttachment(9002, "asset-pack-v2.zip", size=50000000, content_type="application/zip")],
+        reactions=[FakeReaction("🔥", 12), FakeReaction("👍", 8), FakeReaction("🎉", 3)],
+        created_at=_utc(2026, 5, 20, 8, 0))
+    assets_msg2 = FakeMessage(1002,
+        "Updated the download link. Here's the new one:\n\n<@101> can you pin this?",
+        thread_assets, alice,
+        edited_at=_utc(2026, 5, 20, 9, 15),
+        created_at=_utc(2026, 5, 20, 9, 0))
+    assets_msg3 = FakeMessage(1003,
+        "Here's a code snippet for using the textures:\n\n```python\nfrom assets import TextureLoader\n\n"
+        "loader = TextureLoader(\"pack_v2\")\ntexture = loader.load(\"brick_wall\")\n"
+        "print(f\"Loaded {texture.name} ({texture.width}x{texture.height})\")\n"
+        "```\n\nLet me know if you have ||any questions||!",
+        thread_assets, bob,
+        reactions=[FakeReaction("❤️", 5)],
+        created_at=_utc(2026, 5, 20, 10, 30))
+    assets_msg4 = FakeMessage(1004,
+        "This looks great! <@100> Amazing work on the **normal maps** \U0001f44f",
+        thread_assets, charlie,
+        created_at=_utc(2026, 5, 21, 14, 0))
+    assets_msg5 = FakeMessage(1005,
+        "Here's a quick preview:\n\n-# Small disclaimer: these are still WIP\n\n"
+        "> The final pack will include PBR materials\n\nhttps://example.com/docs",
+        thread_assets, alice,
+        embeds=[FakeEmbed(title="Cool Asset Pack v2 -- Preview",
+                          description="Check out the new textures and models in this preview render.",
+                          color=True, image=True)],
+        attachments=[FakeAttachment(9003, "render.webp", content_type="image/webp")],
+        reactions=[FakeReaction("⭐", 2)],
+        created_at=_utc(2026, 5, 21, 15, 0))
+    thread_assets._messages = [assets_msg1, assets_msg2, assets_msg3, assets_msg4, assets_msg5]
+
+    # --- tutorials ---
+    tut_msg1 = FakeMessage(2001,
+        "# Blender Basics: Intermediate Guide\n\n## What you'll learn\n\n"
+        "- **Retopology** techniques\n- UV *unwrapping* best practices\n"
+        "- ~~Outdated~~ methods to avoid\n\n---\n\n### Retopology\n\n```\n"
+        "1. Start with a high-poly mesh\n2. Create a low-poly cage\n"
+        "3. Use Shrinkwrap modifier\n4. Relax the result\n```\n\n"
+        "||spoiler: the answer is always edge loops||",
+        thread_tuts, bob,
+        embeds=[FakeEmbed(title="Video Tutorial",
+                          description="Watch the full guide on YouTube",
+                          url="https://youtube.com/watch?v=example", color=True)],
+        reactions=[FakeReaction("📚", 7), FakeReaction("💡", 4)],
+        created_at=_utc(2026, 5, 18, 10, 0))
+    tut_msg2 = FakeMessage(2002,
+        "Great tutorial! The retopology section helped a lot <@101>\n\nHere's my result:\n<:blender_logo:555>",
+        thread_tuts, alice,
+        attachments=[FakeAttachment(9004, "my_result.png")],
+        created_at=_utc(2026, 5, 18, 16, 30))
+    thread_tuts._messages = [tut_msg1, tut_msg2]
+
+    # --- show-and-tell ---
+    show_msg1 = FakeMessage(3001,
+        "Check out this **procedural texture** I made!\n\n<@100> <@102> what do you think?",
+        thread_show, charlie,
+        attachments=[FakeAttachment(9005, "procedural_demo.mp4", content_type="video/mp4")],
+        reactions=[FakeReaction("😍", 15), FakeReaction("👍", 6)],
+        created_at=_utc(2026, 5, 23, 20, 0))
+    thread_show._messages = [show_msg1]
+
+    ch_assets._threads = [thread_assets]
+    ch_tuts._threads = [thread_tuts]
+    ch_show._threads = [thread_show]
+
+    channels = {111: ch_assets, 222: ch_tuts, 333: ch_show}
+    return FakeClient(channels), channels
+
+
+# ---------------------------------------------------------------------------
+# Generate a fake archive site
+# ---------------------------------------------------------------------------
+
+def generate_fake_site(output_dir: Path, copy_css: bool = True):
+    """Run the archiver with fake data into output_dir."""
+    import builtins
+    import bot.archiver as archiver_mod
+
+    orig = builtins.isinstance
+
+    def _wrap(obj, cls):
+        if cls is archiver_mod.discord.ForumChannel and hasattr(obj, "threads"):
+            return True
+        return orig(obj, cls)
+
+    builtins.isinstance = _wrap
+
+    try:
+        client = build_fake_data()[0]
+        with patch("bot.archiver.download_all_attachments", return_value=[]):
+            archiver = Archiver(client, output_dir)
+            asyncio.run(archiver.archive_all_from_ids(list(client._channels.keys())))
+    finally:
+        builtins.isinstance = orig
+
+    if copy_css:
+        css = Path(__file__).resolve().parent.parent / "site" / "styles.css"
+        if css.exists():
+            shutil.copy2(css, output_dir / "styles.css")

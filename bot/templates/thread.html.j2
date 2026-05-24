@@ -1,17 +1,8 @@
 {% extends "base.html.j2" %}
 {% block title %}{{ thread.name }} — Arborist{% endblock %}
 
-{% block sidebar %}
-<a href="../index.html" class="back">← Back</a>
-<p class="sidebar-thread-name">{{ thread.name }}</p>
-<ul>
-{% for msg in messages %}
-  <li><a href="#msg-{{ msg.id }}">{{ msg.author }}</a></li>
-{% endfor %}
-</ul>
-{% endblock %}
-
 {% block content %}
+<p class="breadcrumb"><a href="{{ root }}index.html">Home</a> / <a href="{{ root }}channels/{{ channel.id }}/index.html"># {{ channel.name }}</a> / <span class="muted">{{ thread.name }}</span></p>
 <h1>{{ thread.name }}</h1>
 <p class="muted">{{ channel.name }} — {{ messages|length }} message{% if messages|length != 1 %}s{% endif %}</p>
 <hr>
@@ -23,7 +14,7 @@
       {% if msg.edited %}<span class="edited">(edited)</span>{% endif %}
     </header>
     <div class="message-content">
-      {{ msg.content }}
+      {{ msg.content | safe }}
     </div>
     {% if msg.embeds %}
       {% for embed in msg.embeds %}

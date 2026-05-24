@@ -7,7 +7,7 @@ import discord
 from discord import app_commands
 
 from .archiver import Archiver
-from .config import DISCORD_TOKEN, CHANNEL_IDS, OUTPUT_DIR, SITE_DIR
+from .config import get_discord_token, get_channel_ids, get_output_dir, get_site_dir
 from .git_manager import GitManager
 
 logger = logging.getLogger("arborist")
@@ -19,23 +19,23 @@ class ArboristClient(discord.Client):
         intents.message_content = True
         intents.guilds = True
         super().__init__(intents=intents)
-        self._git = GitManager(OUTPUT_DIR)
-        self._archiver = Archiver(self, OUTPUT_DIR, git_manager=self._git)
+        self._git = GitManager(get_output_dir())
+        self._archiver = Archiver(self, get_output_dir(), git_manager=self._git)
         self._tree = app_commands.CommandTree(self)
 
     async def setup_hook(self) -> None:
-        self._tree.add_command(_make_archive_command(self._archiver, CHANNEL_IDS))
+        self._tree.add_command(_make_archive_command(self._archiver, get_channel_ids()))
 
     async def on_ready(self) -> None:
         user_info = self.user
         logger.info("Logged in as %s (ID: %s)", getattr(user_info, "name", "?"), getattr(user_info, "id", "?"))
         logger.info("Connected to %d guild(s)", len(self.guilds))
-        logger.info("Watching channel IDs: %s", CHANNEL_IDS)
+        logger.info("Watching channel IDs: %s", get_channel_ids())
 
         await self._tree.sync()
-        _copy_site_files(SITE_DIR, OUTPUT_DIR)
+        _copy_site_files(get_site_dir(), get_output_dir())
 
-        for cid in CHANNEL_IDS:
+        for cid in get_channel_ids():
             ch = self.get_channel(int(cid))
             if ch is None:
                 logger.warning("  Channel %s not found", cid)
@@ -49,7 +49,7 @@ class ArboristClient(discord.Client):
     # ------------------------------------------------------------------
 
     def _is_watched(self, channel_id: int) -> bool:
-        return str(channel_id) in CHANNEL_IDS
+        return str(channel_id) in get_channel_ids()
 
     def _is_watched_thread(self, thread: discord.Thread | None) -> bool:
         return thread is not None and self._is_watched(thread.parent_id)
@@ -68,7 +68,7 @@ class ArboristClient(discord.Client):
         if thread is None or not self._is_watched_thread(thread):
             return
         logger.debug("New message in %s", thread.name)
-        thread_dir = OUTPUT_DIR / "channels" / str(thread.parent_id) / str(thread.id)
+        thread_dir = get_output_dir() / "channels" / str(thread.parent_id) / str(thread.id)
         thread_dir.mkdir(parents=True, exist_ok=True)
         channel_name = thread.parent.name if isinstance(thread.parent, discord.ForumChannel) else ""
         async with aiohttp.ClientSession() as session:
@@ -83,7 +83,7 @@ class ArboristClient(discord.Client):
         if thread is None or not self._is_watched_thread(thread) or after.author.bot:
             return
         logger.debug("Message edited in %s", thread.name)
-        thread_dir = OUTPUT_DIR / "channels" / str(thread.parent_id) / str(thread.id)
+        thread_dir = get_output_dir() / "channels" / str(thread.parent_id) / str(thread.id)
         channel_name = thread.parent.name if isinstance(thread.parent, discord.ForumChannel) else ""
         async with aiohttp.ClientSession() as session:
             await self._archiver._archive_message(after, thread_dir, session, channel_name, thread.name)
@@ -94,7 +94,7 @@ class ArboristClient(discord.Client):
             return
         if not self._is_watched(channel.parent_id):
             return
-        md_path = OUTPUT_DIR / "channels" / str(channel.parent_id) / str(channel.id) / f"{message.id}.md"
+        md_path = get_output_dir() / "channels" / str(channel.parent_id) / str(channel.id) / f"{message.id}.md"
         if md_path.exists():
             md_path.unlink()
             self._git.mark_changed()
@@ -144,7 +144,7 @@ async def main() -> None:
     )
     client = ArboristClient()
     async with client:
-        await client.start(DISCORD_TOKEN)
+        await client.start(get_discord_token())
 
 
 if __name__ == "__main__":

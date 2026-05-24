@@ -1,14 +1,6 @@
 {% extends "base.html.j2" %}
 {% block title %}Arborist{% endblock %}
 
-{% block sidebar %}
-<ul>
-{% for ch in channels %}
-  <li><a href="{{ ch.folder }}/index.html">{{ ch.name }}</a></li>
-{% endfor %}
-</ul>
-{% endblock %}
-
 {% block content %}
 <h1>Arborist</h1>
 <p class="muted">Archived Discord forum channels</p>
