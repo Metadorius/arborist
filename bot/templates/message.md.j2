@@ -1,0 +1,49 @@
+---
+message_id: {{ message_id }}
+channel_id: {{ channel_id }}
+channel_name: {{ channel_name }}
+{% if thread_id %}thread_id: {{ thread_id }}{% endif %}
+{% if thread_name %}thread_name: {{ thread_name }}{% endif %}
+author: {{ author }}
+author_id: {{ author_id }}
+timestamp: {{ timestamp }}
+{% if edited %}edited: {{ edited }}{% endif %}
+pinned: {{ pinned | lower }}
+jump_url: {{ jump_url }}
+attachments:
+{% for att in attachments %}
+  - id: {{ att.id }}
+    filename: {{ att.filename }}
+    size: {{ att.size }}
+    is_image: {{ att.is_image | lower }}
+    is_video: {{ att.is_video | lower }}
+{% endfor %}
+reactions:
+{% for r in reactions %}
+  - emoji: {{ r.emoji }}
+    count: {{ r.count }}
+{% endfor %}
+---
+
+{% if content %}
+{{ content }}
+{% endif %}
+
+{% for embed in embeds %}
+> **Embed{% if embed.title %}: {{ embed.title }}{% endif %}**
+{% if embed.description %}
+> {{ embed.description | replace('\n', '\n> ') }}
+{% endif %}
+{% for field in embed.fields %}
+> **{{ field.name }}**: {{ field.value }}
+{% endfor %}
+{% endfor %}
+
+{# Attachment links #}
+{% for att in attachments %}
+{% if att.is_image %}
+![{{ att.filename }}]({{ att.url }})
+{% else %}
+[{{ att.filename }}]({{ att.url }})
+{% endif %}
+{% endfor %}

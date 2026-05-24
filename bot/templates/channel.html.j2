@@ -1,0 +1,24 @@
+{% extends "base.html.j2" %}
+{% block title %}#{{ channel.name }} — Arborist{% endblock %}
+{% block sidebar %}
+<a href="../index.html" class="back">← Back</a>
+<ul>
+{% for th in threads %}
+  <li><a href="{{ th.folder }}/index.html"{% if th.id == thread_id %} class="active"{% endif %}>{{ th.name }}</a></li>
+{% endfor %}
+</ul>
+{% endblock %}
+
+{% block content %}
+<h1># {{ channel.name }}</h1>
+<p class="muted">{{ channel.thread_count }} thread{% if channel.thread_count != 1 %}s{% endif %}</p>
+<div class="channel-grid">
+{% for th in threads %}
+  <a class="card" href="{{ th.folder }}/index.html">
+    <h3>{{ th.name }}</h3>
+    <p class="muted">{{ th.message_count }} message{% if th.message_count != 1 %}s{% endif %}</p>
+    <p class="timestamp">{{ th.updated }}</p>
+  </a>
+{% endfor %}
+</div>
+{% endblock %}

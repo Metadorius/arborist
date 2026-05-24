@@ -1,0 +1,54 @@
+# Auto-detect text files and normalize to LF
+* text=auto
+
+# Python
+*.py   text diff=python
+*.pyi  text diff=python
+*.toml text
+*.cfg  text
+*.j2   text
+
+# Documentation
+*.md   text diff=markdown
+*.rst  text
+*.txt  text
+
+# Config
+*.env.example text
+.yml          text
+.yaml         text
+.json         text
+.gitignore    text
+.gitattributes text
+
+# CSS/JS
+*.css  text
+*.js   text
+
+# Images — binary
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.webp binary
+*.ico  binary
+*.svg  text
+
+# Archives — binary
+*.zip binary
+*.7z  binary
+*.tar.gz binary
+*.gz  binary
+
+# Audio/video — binary
+*.mp3  binary
+*.mp4  binary
+*.ogg  binary
+*.webm binary
+*.wav  binary
+
+# Other binaries
+*.exe binary
+*.dll binary
+*.so  binary
+*.dylib binary

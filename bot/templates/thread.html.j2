@@ -1,0 +1,56 @@
+{% extends "base.html.j2" %}
+{% block title %}{{ thread.name }} — Arborist{% endblock %}
+
+{% block sidebar %}
+<a href="../index.html" class="back">← Back</a>
+<p class="sidebar-thread-name">{{ thread.name }}</p>
+<ul>
+{% for msg in messages %}
+  <li><a href="#msg-{{ msg.id }}">{{ msg.author }}</a></li>
+{% endfor %}
+</ul>
+{% endblock %}
+
+{% block content %}
+<h1>{{ thread.name }}</h1>
+<p class="muted">{{ channel.name }} — {{ messages|length }} message{% if messages|length != 1 %}s{% endif %}</p>
+<hr>
+{% for msg in messages %}
+  <article class="message" id="msg-{{ msg.id }}">
+    <header class="message-header">
+      <strong class="message-author">{{ msg.author }}</strong>
+      <time class="timestamp" datetime="{{ msg.timestamp }}">{{ msg.timestamp }}</time>
+      {% if msg.edited %}<span class="edited">(edited)</span>{% endif %}
+    </header>
+    <div class="message-content">
+      {{ msg.content }}
+    </div>
+    {% if msg.embeds %}
+      {% for embed in msg.embeds %}
+        <div class="embed">
+          {% if embed.title %}<strong>{{ embed.title }}</strong>{% endif %}
+          {% if embed.description %}<p>{{ embed.description }}</p>{% endif %}
+        </div>
+      {% endfor %}
+    {% endif %}
+    {% if msg.attachments %}
+      <div class="attachments">
+        {% for att in msg.attachments %}
+          {% if att.is_image %}
+            <a href="{{ att.url }}" target="_blank"><img src="{{ att.url }}" alt="{{ att.filename }}" loading="lazy"></a>
+          {% else %}
+            <a href="{{ att.url }}" class="attachment-link">📎 {{ att.filename }}</a>
+          {% endif %}
+        {% endfor %}
+      </div>
+    {% endif %}
+    {% if msg.reactions %}
+      <div class="reactions">
+        {% for r in msg.reactions %}
+          <span class="reaction">{{ r.emoji }} {{ r.count }}</span>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </article>
+{% endfor %}
+{% endblock %}

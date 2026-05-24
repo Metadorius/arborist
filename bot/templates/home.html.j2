@@ -1,0 +1,23 @@
+{% extends "base.html.j2" %}
+{% block title %}Arborist{% endblock %}
+
+{% block sidebar %}
+<ul>
+{% for ch in channels %}
+  <li><a href="{{ ch.folder }}/index.html">{{ ch.name }}</a></li>
+{% endfor %}
+</ul>
+{% endblock %}
+
+{% block content %}
+<h1>Arborist</h1>
+<p class="muted">Archived Discord forum channels</p>
+<div class="channel-grid">
+{% for ch in channels %}
+  <a class="card" href="{{ ch.folder }}/index.html">
+    <h2># {{ ch.name }}</h2>
+    <p class="muted">{{ ch.thread_count }} thread{% if ch.thread_count != 1 %}s{% endif %}</p>
+  </a>
+{% endfor %}
+</div>
+{% endblock %}

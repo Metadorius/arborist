@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Arborist{% endblock %}</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="sidebar">
+  <div id="sidebar-header">
+    <h1><a href="index.html">Arborist</a></h1>
+  </div>
+  <nav id="channel-list">
+    {% block sidebar %}{% endblock %}
+  </nav>
+</div>
+<main id="content">
+  {% block content %}{% endblock %}
+</main>
+<script>
+// Mobile sidebar toggle
+document.getElementById('sidebar-header')?.addEventListener('click', () => {
+  document.getElementById('sidebar')?.classList.toggle('open');
+});
+</script>
+</body>
+</html>
