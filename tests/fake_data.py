@@ -128,8 +128,19 @@ def build_fake_data():
     ch_show = FakeChannel(333, "show-and-tell")
 
     thread_assets = FakeThread(10001, "Cool Asset Pack v2", 111, ch_assets, [])
+    thread_assets_pbr = FakeThread(10002, "Free PBR Materials Pack", 111, ch_assets, [])
+    thread_assets_naming = FakeThread(10003, "Question: best asset naming convention?", 111, ch_assets, [])
+    thread_assets_village = FakeThread(10004, "WIP: medieval village kit", 111, ch_assets, [])
+
     thread_tuts = FakeThread(20001, "Blender Basics -- Intermediate", 222, ch_tuts, [])
+    thread_tuts_rig = FakeThread(20002, "Rigging tutorial: skeleton setup", 222, ch_tuts, [])
+    thread_tuts_sp = FakeThread(20003, "Substance Painter for beginners", 222, ch_tuts, [])
+
     thread_show = FakeThread(30001, "Procedural Texture Experiment", 333, ch_show, [])
+    thread_show_dragon = FakeThread(30002, "Sculpting practice: dragon head", 333, ch_show, [])
+    thread_show_anim = FakeThread(30003, "Animated character demo", 333, ch_show, [])
+    thread_show_scene = FakeThread(30004, "First completed scene!", 333, ch_show, [])
+    thread_show_light = FakeThread(30005, "Lighting study collection", 333, ch_show, [])
 
     # --- assets ---
     assets_msg1 = FakeMessage(1001,
@@ -200,9 +211,61 @@ def build_fake_data():
         created_at=_utc(2026, 5, 23, 20, 0))
     thread_show._messages = [show_msg1]
 
-    ch_assets._threads = [thread_assets]
-    ch_tuts._threads = [thread_tuts]
-    ch_show._threads = [thread_show]
+    # --- extra threads (short, to showcase the sidebar tree) ---
+    thread_assets_pbr._messages = [FakeMessage(1101,
+        "Dropping a free **PBR materials pack** -- 20 surfaces, 2K textures, CC0.",
+        thread_assets_pbr, bob,
+        attachments=[FakeAttachment(9101, "pbr_pack.zip", size=80000000, content_type="application/zip")],
+        reactions=[FakeReaction("🙏", 9)],
+        created_at=_utc(2026, 5, 19, 11, 0))]
+    thread_assets_naming._messages = [FakeMessage(1201,
+        "What naming convention do you use? `snake_case`, `PascalCase`, prefix-by-type?",
+        thread_assets_naming, charlie,
+        reactions=[FakeReaction("🤔", 4)],
+        created_at=_utc(2026, 5, 22, 9, 30))]
+    thread_assets_village._messages = [FakeMessage(1301,
+        "Early WIP of a **medieval village kit** -- modular walls, roofs, props.",
+        thread_assets_village, alice,
+        attachments=[FakeAttachment(9102, "village_wip.png")],
+        created_at=_utc(2026, 5, 23, 17, 0))]
+
+    thread_tuts_rig._messages = [FakeMessage(2101,
+        "Step-by-step **skeleton setup** for humanoid rigs. Covers IK, constraints, weight painting.",
+        thread_tuts_rig, bob,
+        reactions=[FakeReaction("📚", 6)],
+        created_at=_utc(2026, 5, 17, 14, 0))]
+    thread_tuts_sp._messages = [FakeMessage(2201,
+        "**Substance Painter** quickstart: smart materials, layer masks, exporting to glTF.",
+        thread_tuts_sp, bob,
+        created_at=_utc(2026, 5, 19, 13, 0))]
+
+    thread_show_dragon._messages = [FakeMessage(3101,
+        "Some sculpting practice -- **dragon head** in ZBrush.",
+        thread_show_dragon, alice,
+        attachments=[FakeAttachment(9201, "dragon_head.png")],
+        reactions=[FakeReaction("🐉", 11), FakeReaction("🔥", 4)],
+        created_at=_utc(2026, 5, 22, 19, 0))]
+    thread_show_anim._messages = [FakeMessage(3201,
+        "Short **animated demo** of a character I've been working on.",
+        thread_show_anim, charlie,
+        attachments=[FakeAttachment(9202, "anim_demo.mp4", content_type="video/mp4")],
+        reactions=[FakeReaction("🎬", 8)],
+        created_at=_utc(2026, 5, 23, 12, 0))]
+    thread_show_scene._messages = [FakeMessage(3301,
+        "My **first completed scene**! Took two months but I'm happy with the result.",
+        thread_show_scene, alice,
+        attachments=[FakeAttachment(9203, "first_scene.png")],
+        reactions=[FakeReaction("🎉", 14), FakeReaction("❤️", 7)],
+        created_at=_utc(2026, 5, 24, 10, 0))]
+    thread_show_light._messages = [FakeMessage(3401,
+        "Collection of **lighting studies** -- HDRI, three-point, dramatic side-light.",
+        thread_show_light, bob,
+        attachments=[FakeAttachment(9204, "lighting_studies.png")],
+        created_at=_utc(2026, 5, 24, 16, 0))]
+
+    ch_assets._threads = [thread_assets, thread_assets_pbr, thread_assets_naming, thread_assets_village]
+    ch_tuts._threads = [thread_tuts, thread_tuts_rig, thread_tuts_sp]
+    ch_show._threads = [thread_show, thread_show_dragon, thread_show_anim, thread_show_scene, thread_show_light]
 
     channels = {111: ch_assets, 222: ch_tuts, 333: ch_show}
     return FakeClient(channels), channels

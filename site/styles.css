@@ -195,26 +195,55 @@ small { font-size: 0.82em; color: var(--text-muted); }
 del { color: var(--text-muted); }
 .discord-timestamp { color: var(--text-muted); }
 
-/* ---- Tree sidebar ---- */
+/* ---- Sidebar tree ---- */
 
-.tree-channel { /* no borders */ }
 .tree-channel summary {
-  list-style: none; padding: 0; cursor: pointer;
+  list-style: none;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.9rem; font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
 }
 .tree-channel summary::-webkit-details-marker { display: none; }
+.tree-channel summary a,
+.tree-channel-link { color: inherit; }
+.tree-channel-link:hover,
+.tree-channel-link.active { color: var(--accent); text-decoration: none; }
 
-.tree-channel-link {
-  display: block; padding: 0.3rem 0.5rem 0.3rem 0.3rem;
-  font-size: 0.85rem; font-weight: 600; color: var(--text-muted);
-  border-left: 3px solid transparent;
+.tree-channel > .tree-thread {
+  position: relative;
+  display: block;
+  margin-left: 1.25rem;
+  padding: 0.25rem 0.5rem 0.25rem 1rem;
+  font-size: 0.83rem;
+  color: var(--text-muted);
+  border-left: 1px solid var(--border);
+  transition: color 0.15s;
 }
-.tree-channel-link:hover { color: var(--accent); text-decoration: none; }
-.tree-channel-link.active { color: var(--accent); border-left-color: var(--accent); }
 
-.tree-thread {
-  display: block; padding: 0.2rem 0.5rem 0.2rem 1.2rem;
-  font-size: 0.8rem; color: var(--text-muted);
+.tree-channel > .tree-thread::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 0.6rem;
+  height: 1px;
+  background: var(--border);
 }
+
+.tree-channel > .tree-thread:last-of-type {
+  border-left: none;
+}
+.tree-channel > .tree-thread:last-of-type::after {
+  content: "";
+  position: absolute;
+  left: 0; top: 0;
+  width: 1px; height: 50%;
+  background: var(--border);
+}
+
+.tree-thread:hover,
+.tree-thread.active { color: var(--accent); text-decoration: none; }
 
 /* ---- Breadcrumb ---- */
 
@@ -240,22 +269,3 @@ del { color: var(--text-muted); }
   .channel-grid { grid-template-columns: 1fr; }
 }
 
-.browse-label { ... } /* unused */
-
-.tree-channel { border-bottom: 1px solid var(--border); }
-.tree-channel summary {
-  list-style: none; padding: 0.35rem 1rem;
-  font-size: 0.9rem; font-weight: 600; cursor: pointer;
-  color: var(--text);
-}
-.tree-channel summary::-webkit-details-marker { display: none; }
-.tree-channel summary a { color: inherit; }
-.tree-channel summary a.active { color: var(--accent); }
-
-.tree-thread {
-  display: block; padding: 0.25rem 1rem 0.25rem 2rem;
-  font-size: 0.83rem; color: var(--text-muted);
-  transition: color 0.15s;
-}
-.tree-thread:hover { color: var(--accent); text-decoration: none; }
-.tree-thread.active { color: var(--accent); }
