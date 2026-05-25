@@ -138,3 +138,96 @@ class TestSidebarResponsive:
         page.wait_for_timeout(300)
         content_x_closed = page.locator("#content").bounding_box()["x"]
         assert content_x_closed < content_x_open
+
+
+@pytest.mark.playwright
+class TestCardGridResponsive:
+    """Channel cards use auto-fill grid: multi-column on desktop, single on mobile."""
+
+    VIEW_WIDE = {"width": 1200, "height": 800}
+    VIEW_NARROW = {"width": 600, "height": 800}
+    VIEW_MOBILE = {"width": 375, "height": 667}
+
+    def _cards_per_row(self, page) -> int:
+        """Count how many cards share the same top y-coordinate (same row)."""
+        cards = page.locator(".card")
+        tops = [cards.nth(i).bounding_box()["y"] for i in range(cards.count())]
+        # group by y within 2px tolerance
+        rows = 0
+        threshold = 2
+        sorted_tops = sorted(tops)
+        prev = None
+        for t in sorted_tops:
+            if prev is None or abs(t - prev) > threshold:
+                rows += 1
+            prev = t
+        return rows
+
+    def test_wide_viewport_multi_column(self, page, fake_site_url):
+        """At 1200px, cards should fill multiple columns (more rows than if all in one)."""
+        page.set_viewport_size(self.VIEW_WIDE)
+        page.goto(f"{fake_site_url}/index.html")
+        rows = self._cards_per_row(page)
+        card_count = page.locator(".card").count()
+        # with ~3 channels at 1200px, all should fit in 1 row (or at least fewer rows than cards)
+        assert rows < card_count
+
+    def test_mobile_single_column(self, page, fake_site_url):
+        """At 375px, cards should stack in a single column."""
+        page.set_viewport_size(self.VIEW_MOBILE)
+        page.goto(f"{fake_site_url}/index.html")
+        rows = self._cards_per_row(page)
+        card_count = page.locator(".card").count()
+        assert rows == card_count  # each card on its own row
+
+    def test_card_min_width_respected(self, page, fake_site_url):
+        """Each card should be at least 280px wide (the grid minmax minimum)."""
+        page.set_viewport_size(self.VIEW_WIDE)
+        page.goto(f"{fake_site_url}/index.html")
+        cards = page.locator(".card")
+        for i in range(cards.count()):
+            w = cards.nth(i).bounding_box()["width"]
+            assert w >= 280, f"card {i} width {w} < 280"
+
+    def test_cards_fill_grid_width(self, page, fake_site_url):
+        """At 1200px with sidebar open, cards should span most of the content area."""
+        page.set_viewport_size(self.VIEW_WIDE)
+        page.goto(f"{fake_site_url}/index.html")
+        grid = page.locator(".channel-grid")
+        content = page.locator("#content")
+        grid_w = grid.bounding_box()["width"]
+        content_w = content.bounding_box()["width"]
+        # grid should use at least 80% of content width
+        assert grid_w >= content_w * 0.8
+
+    def test_narrow_viewport_single_column(self, page, fake_site_url):
+        """At 600px (below 768px mobile breakpoint), cards stack single-column."""
+        page.set_viewport_size(self.VIEW_NARROW)
+        page.goto(f"{fake_site_url}/index.html")
+        cols = page.locator(".channel-grid").evaluate(
+            "el => getComputedStyle(el).gridTemplateColumns.split(' ').length"
+        )
+        assert cols == 1
+
+    def test_wide_viewport_multi_column_template(self, page, fake_site_url):
+        """At 1200px, grid should have multiple column tracks (auto-fill)."""
+        page.set_viewport_size(self.VIEW_WIDE)
+        page.goto(f"{fake_site_url}/index.html")
+        cols = page.locator(".channel-grid").evaluate(
+            "el => getComputedStyle(el).gridTemplateColumns.split(' ').length"
+        )
+        assert cols > 1
+
+    def test_ultrawide_uses_more_columns(self, page, fake_site_url):
+        """At 2560px, grid should tile into more columns than at 1200px."""
+        page.set_viewport_size(self.VIEW_WIDE)
+        page.goto(f"{fake_site_url}/index.html")
+        cols_narrow = page.locator(".channel-grid").evaluate(
+            "el => getComputedStyle(el).gridTemplateColumns.split(' ').length"
+        )
+        page.set_viewport_size({"width": 2560, "height": 800})
+        page.goto(f"{fake_site_url}/index.html")
+        cols_wide = page.locator(".channel-grid").evaluate(
+            "el => getComputedStyle(el).gridTemplateColumns.split(' ').length"
+        )
+        assert cols_wide > cols_narrow

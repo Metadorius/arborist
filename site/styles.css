@@ -112,7 +112,6 @@ a:hover { color: var(--accent-hover); }
 #content {
   flex: 1;
   padding: var(--sp-6);
-  max-width: 860px;
   min-width: 0;
 }
 
