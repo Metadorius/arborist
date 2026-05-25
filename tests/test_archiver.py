@@ -99,6 +99,7 @@ class FakeThread:
         self.name = name
         self.parent_id = parent_id
         self.parent = parent or FakeChannel(id=parent_id)
+        self.guild = self.parent.guild
         self._history = history_messages or []
         self.applied_tags = []
 
@@ -112,9 +113,10 @@ class FakeThread:
 
 class FakeChannel:
     """Simulates a Discord forum channel."""
-    def __init__(self, id=200, name="assets", threads=None):
+    def __init__(self, id=200, name="assets", guild_id=1, threads=None):
         self.id = id
         self.name = name
+        self.guild = type("G", (), {"id": guild_id})()
         self.threads_list = threads or []
         self.archived_list = []
 
@@ -157,7 +159,7 @@ class TestArchiver:
         asyncio.run(archiver.archive_channel(555))
 
         out = tmp_path / "output"
-        assert (out / "channels" / "555").exists()
+        assert (out / "channels" / "1" / "555").exists()
         assert (out / "index.html").exists()  # home page
 
     @patch("bot.archiver.isinstance", return_value=True)
@@ -174,7 +176,7 @@ class TestArchiver:
         asyncio.run(archiver.archive_channel(777))
 
         # Check structure
-        thread_dir = tmp_path / "output" / "channels" / "777" / "100"
+        thread_dir = tmp_path / "output" / "channels" / "1" / "777" / "100"
         assert thread_dir.exists()
         assert (thread_dir / "index.html").exists()
         assert (thread_dir / "10.md").exists()
@@ -205,7 +207,7 @@ class TestArchiver:
 
         asyncio.run(archiver.archive_channel(999))
 
-        thread_dir = tmp_path / "output" / "channels" / "999" / "200"
+        thread_dir = tmp_path / "output" / "channels" / "1" / "999" / "200"
         for mid in ["1", "2", "3"]:
             assert (thread_dir / f"{mid}.md").exists()
 
@@ -245,7 +247,7 @@ class TestArchiver:
         asyncio.run(archiver.archive_channel(42))
 
         for t in threads:
-            page = (tmp_path / "output" / "channels" / "42" / str(t.id) / "index.html").read_text()
+            page = (tmp_path / "output" / "channels" / "1" / "42" / str(t.id) / "index.html").read_text()
             for sibling in threads:
                 assert sibling.name in page, f"{t.name}'s page missing sibling {sibling.name}"
 
@@ -263,7 +265,7 @@ class TestArchiver:
 
         asyncio.run(archiver.archive_channel(55))
 
-        md_path = tmp_path / "output" / "channels" / "55" / "500" / "5001.md"
+        md_path = tmp_path / "output" / "channels" / "1" / "55" / "500" / "5001.md"
         data = _read_frontmatter(md_path)
         assert data.get("thread_name") == "Question: best? 'really'"
         # And the sidebar/channel-page reader picks it up too.

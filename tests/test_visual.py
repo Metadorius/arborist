@@ -58,23 +58,23 @@ class TestHomePage:
 @pytest.mark.playwright
 class TestThreadPage:
     def test_messages_render(self, page, fake_site_url):
-        page.goto(f"{fake_site_url}/channels/111/10001/index.html")
+        page.goto(f"{fake_site_url}/channels/1/111/10001/index.html")
         msgs = page.locator("article.message")
         assert msgs.count() >= 3
 
     def test_breadcrumb_present(self, page, fake_site_url):
-        page.goto(f"{fake_site_url}/channels/111/10001/index.html")
+        page.goto(f"{fake_site_url}/channels/1/111/10001/index.html")
         bc = page.locator(".breadcrumb")
         assert bc.is_visible()
 
     def test_active_tree_highlight(self, page, fake_site_url):
-        page.goto(f"{fake_site_url}/channels/222/20001/index.html")
+        page.goto(f"{fake_site_url}/channels/1/222/20001/index.html")
         link = page.locator("a.tree-thread.active")
         assert link.is_visible()
 
     def test_images_are_clickable(self, page, fake_site_url):
         """Every <img> inside .attachments must be wrapped in an <a> with href."""
-        page.goto(f"{fake_site_url}/channels/333/30001/index.html")
+        page.goto(f"{fake_site_url}/channels/1/333/30001/index.html")
         imgs = page.locator(".attachments img")
         assert imgs.count() >= 1
         for i in range(imgs.count()):
@@ -87,13 +87,13 @@ class TestThreadPage:
 
     def test_gallery_has_multiple_images(self, page, fake_site_url):
         """The procedural texture thread should have a multi-image gallery."""
-        page.goto(f"{fake_site_url}/channels/333/30001/index.html")
+        page.goto(f"{fake_site_url}/channels/1/333/30001/index.html")
         gallery_imgs = page.locator(".attachments img")
         assert gallery_imgs.count() >= 4, f"expected >= 4 gallery images, got {gallery_imgs.count()}"
 
     def test_embed_image_clickable(self, page, fake_site_url):
         """.embed-image should be wrapped in an <a> linking to the image."""
-        page.goto(f"{fake_site_url}/channels/222/20001/index.html")
+        page.goto(f"{fake_site_url}/channels/1/222/20001/index.html")
         embed_img = page.locator(".embed-image")
         assert embed_img.count() >= 1
         parent_tag = embed_img.first.evaluate("el => el.parentElement.tagName")

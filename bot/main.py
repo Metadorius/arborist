@@ -127,7 +127,8 @@ class ArboristClient(discord.Client):
         if thread is None or not self._is_watched_thread(thread) or self._http is None:
             return
         logger.debug("New message in %s", thread.name)
-        thread_dir = self._output / "channels" / str(thread.parent_id) / str(thread.id)
+        guild_id = str(thread.guild.id) if thread.guild else "0"
+        thread_dir = self._output / "channels" / guild_id / str(thread.parent_id) / str(thread.id)
         thread_dir.mkdir(parents=True, exist_ok=True)
         channel_name = thread.parent.name if isinstance(thread.parent, discord.ForumChannel) else ""
 
@@ -149,7 +150,8 @@ class ArboristClient(discord.Client):
         if self._http is None:
             return
         logger.debug("Message edited in %s", thread.name)
-        thread_dir = self._output / "channels" / str(thread.parent_id) / str(thread.id)
+        guild_id = str(thread.guild.id) if thread.guild else "0"
+        thread_dir = self._output / "channels" / guild_id / str(thread.parent_id) / str(thread.id)
         channel_name = thread.parent.name if isinstance(thread.parent, discord.ForumChannel) else ""
         await self._archiver.archive_message(after, thread_dir, self._http, channel_name, thread.name)
 
@@ -166,7 +168,8 @@ class ArboristClient(discord.Client):
             return
         if not self._is_watched(channel.parent_id):
             return
-        md_path = self._output / "channels" / str(channel.parent_id) / str(channel.id) / f"{message.id}.md"
+        guild_id = str(channel.guild.id) if channel.guild else "0"
+        md_path = self._output / "channels" / guild_id / str(channel.parent_id) / str(channel.id) / f"{message.id}.md"
         if md_path.exists():
             md_path.unlink()
             self._git.mark_changed()

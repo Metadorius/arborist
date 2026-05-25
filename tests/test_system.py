@@ -62,8 +62,8 @@ class TestThreadPage:
 
     def test_sidebar_nav(self, fake_site):
         html = (fake_site / "channels" / "111" / "10001" / "index.html").read_text()
-        assert 'data-path="channels/111"' in html
-        assert 'data-path="channels/111/10001"' in html
+        assert 'data-path="channels/1/111"' in html
+        assert 'data-path="channels/1/111/10001"' in html
 
     def test_messages_present(self, fake_site):
         html = (fake_site / "channels" / "111" / "10001" / "index.html").read_text()

@@ -96,6 +96,22 @@ class Archiver:
         depth = len(file_path.resolve().relative_to(base.resolve()).parents) - 1
         return "../" * max(depth, 0)
 
+    @staticmethod
+    def _guild_id(thread: discord.Thread) -> str:
+        """Extract guild ID from a thread, falling back to parent."""
+        if thread.guild is not None:
+            return str(thread.guild.id)
+        if thread.parent and thread.parent.guild:
+            return str(thread.parent.guild.id)
+        return "0"
+
+    @staticmethod
+    def _channel_guild_id(channel: discord.ForumChannel) -> str:
+        """Extract guild ID from a forum channel."""
+        if channel.guild is not None:
+            return str(channel.guild.id)
+        return "0"
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -152,7 +168,8 @@ class Archiver:
         """Fetch all messages in a thread and archive them."""
         logger.info("Archiving thread: %s (ID: %s)", thread.name, thread.id)
 
-        thread_dir = self._channels_dir / str(thread.parent_id) / str(thread.id)
+        guild_id = self._guild_id(thread)
+        thread_dir = self._channels_dir / guild_id / str(thread.parent_id) / str(thread.id)
         thread_dir.mkdir(parents=True, exist_ok=True)
 
         channel_name = ""
@@ -224,7 +241,8 @@ class Archiver:
                 is_image = a.content_type is not None and a.content_type.startswith("image/")
                 attachments.append({
                     "filename": a.filename,
-                    "url": f"../../../attachments/{thread.parent_id}/{a.id}/{a.filename}",
+                    "channel_id": str(thread.parent_id),
+                    "id": str(a.id),
                     "is_image": is_image,
                     "size": a.size,
                 })
@@ -241,7 +259,8 @@ class Archiver:
             })
 
         tmpl = self._env.get_template("thread.html.j2")
-        thread_dir = self._channels_dir / str(thread.parent_id) / str(thread.id)
+        guild_id = self._guild_id(thread)
+        thread_dir = self._channels_dir / guild_id / str(thread.parent_id) / str(thread.id)
         thread_dir.mkdir(parents=True, exist_ok=True)
         index_path = thread_dir / "index.html"
         html = tmpl.render(
@@ -252,14 +271,15 @@ class Archiver:
                 "name": thread.name,
                 "tags": _extract_tags(thread),
             },
-            channel={"id": str(thread.parent_id), "name": channel_name},
+            channel={"id": str(thread.parent_id), "name": channel_name, "guild_id": guild_id},
             messages=msg_data,
         )
         index_path.write_text(html, encoding="utf-8")
 
     def _write_channel_index(self, channel: discord.ForumChannel, tree: list | None = None) -> None:
         """Generate the channel page (index.html) listing its threads."""
-        ch_dir = self._channels_dir / str(channel.id)
+        guild_id = self._channel_guild_id(channel)
+        ch_dir = self._channels_dir / guild_id / str(channel.id)
         ch_dir.mkdir(parents=True, exist_ok=True)
 
         threads = []
@@ -294,19 +314,23 @@ class Archiver:
 
         channels = []
         if self._channels_dir.exists():
-            for ch_dir in sorted(self._channels_dir.iterdir()):
-                if not ch_dir.is_dir():
+            for guild_dir in sorted(self._channels_dir.iterdir()):
+                if not guild_dir.is_dir():
                     continue
-                channel_index = ch_dir / "index.html"
-                if not channel_index.exists():
-                    continue
-                channel_id = ch_dir.name
-                thread_count = sum(1 for p in ch_dir.iterdir() if p.is_dir())
-                channels.append({
-                    "name": self._read_channel_name(ch_dir),
-                    "folder": f"channels/{channel_id}",
-                    "thread_count": thread_count,
-                })
+                guild_id = guild_dir.name
+                for ch_dir in sorted(guild_dir.iterdir()):
+                    if not ch_dir.is_dir():
+                        continue
+                    channel_index = ch_dir / "index.html"
+                    if not channel_index.exists():
+                        continue
+                    channel_id = ch_dir.name
+                    thread_count = sum(1 for p in ch_dir.iterdir() if p.is_dir())
+                    channels.append({
+                        "name": self._read_channel_name(ch_dir),
+                        "folder": f"channels/{guild_id}/{channel_id}",
+                        "thread_count": thread_count,
+                    })
 
         index_path = self._output / "index.html"
         tmpl = self._env.get_template("home.html.j2")
@@ -356,12 +380,13 @@ class Archiver:
     ) -> list[dict]:
         """Return `tree` with `channel`'s thread list replaced by `threads` (in-memory).
         Adds the channel node if absent."""
+        guild_id = str(channel.guild.id) if channel.guild else "0"
         node = {
             "id": str(channel.id),
             "name": channel.name,
-            "folder": str(channel.id),
+            "folder": f"{guild_id}/{channel.id}",
             "threads": [
-                {"id": str(t.id), "name": t.name, "folder": f"{channel.id}/{t.id}"}
+                {"id": str(t.id), "name": t.name, "folder": f"{guild_id}/{channel.id}/{t.id}"}
                 for t in threads
             ],
         }
@@ -384,9 +409,10 @@ class Archiver:
             ch = self._client.get_channel(cid)
             if ch is None or not hasattr(ch, "threads"):
                 continue
-            threads = [{"id": str(t.id), "name": t.name, "folder": f"{cid}/{t.id}"}
+            guild_id = str(ch.guild.id) if ch.guild else "0"
+            threads = [{"id": str(t.id), "name": t.name, "folder": f"{guild_id}/{cid}/{t.id}"}
                        for t in ch.threads]
-            tree.append({"id": str(cid), "name": ch.name, "folder": str(cid), "threads": threads})
+            tree.append({"id": str(cid), "name": ch.name, "folder": f"{guild_id}/{cid}", "threads": threads})
         return tree
 
     @staticmethod
@@ -417,19 +443,23 @@ class Archiver:
         channels = []
         if not self._channels_dir.exists():
             return channels
-        for ch_dir in sorted(self._channels_dir.iterdir()):
-            if not ch_dir.is_dir():
+        for guild_dir in sorted(self._channels_dir.iterdir()):
+            if not guild_dir.is_dir():
                 continue
-            ch_id = ch_dir.name
-            ch_name = self._read_channel_name(ch_dir)
-            threads = []
-            for th_dir in sorted(ch_dir.iterdir()):
-                if not th_dir.is_dir():
+            guild_id = guild_dir.name
+            for ch_dir in sorted(guild_dir.iterdir()):
+                if not ch_dir.is_dir():
                     continue
-                th_id = th_dir.name
-                th_name = self._read_thread_name(th_dir)
-                threads.append({"id": th_id, "name": th_name, "folder": f"{ch_id}/{th_id}"})
-            channels.append({"id": ch_id, "name": ch_name, "folder": ch_id, "threads": threads})
+                ch_id = ch_dir.name
+                ch_name = self._read_channel_name(ch_dir)
+                threads = []
+                for th_dir in sorted(ch_dir.iterdir()):
+                    if not th_dir.is_dir():
+                        continue
+                    th_id = th_dir.name
+                    th_name = self._read_thread_name(th_dir)
+                    threads.append({"id": th_id, "name": th_name, "folder": f"{guild_id}/{ch_id}/{th_id}"})
+                channels.append({"id": ch_id, "name": ch_name, "folder": f"{guild_id}/{ch_id}", "threads": threads})
         return channels
 
     @staticmethod

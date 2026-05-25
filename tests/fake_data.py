@@ -109,6 +109,7 @@ class FakeThread:
         self.name = name
         self.parent_id = parent_id
         self.parent = parent
+        self.guild = getattr(parent, "guild", None)
         self._messages = messages
         self.applied_tags = tags or []
     def history(self, limit=None, oldest_first=True):
@@ -119,9 +120,10 @@ class FakeThread:
 
 
 class FakeChannel:
-    def __init__(self, id: int, name: str, threads=None):
+    def __init__(self, id: int, name: str, guild_id: int = 1, threads=None):
         self.id = id
         self.name = name
+        self.guild = type("G", (), {"id": guild_id})()
         self._threads = threads or []
         self._archived = []
     @property

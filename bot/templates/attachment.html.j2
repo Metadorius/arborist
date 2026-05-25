@@ -1,8 +1,9 @@
+{% set att_url = root ~ "attachments/" ~ att.channel_id ~ "/" ~ att.id ~ "/" ~ att.filename %}
 {% if att.is_image %}
-  <a href="{{ att.url }}" target="_blank"><img src="{{ att.url }}" alt="{{ att.filename }}" loading="lazy"></a>
+  <a href="{{ att_url }}" target="_blank"><img src="{{ att_url }}" alt="{{ att.filename }}" loading="lazy"></a>
   <span class="attachment-meta">{{ att.filename }} — {{ att.size | filesize }}</span>
 {% else %}
-  <a href="{{ att.url }}" class="attachment-link">
+  <a href="{{ att_url }}" class="attachment-link">
     <span class="attachment-link-icon">📎</span>
     <span class="attachment-link-text">
       <span class="attachment-link-name">{{ att.filename }}</span>
