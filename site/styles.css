@@ -113,6 +113,7 @@ a:hover { color: var(--accent-hover); }
   flex: 1;
   padding: var(--sp-6);
   max-width: 860px;
+  min-width: 0;
 }
 
 /* ============================================================
@@ -470,17 +471,20 @@ del { color: var(--text-muted); }
    14. Mobile (≤768px) — responsive overrides only
    ============================================================ */
 
+/* ============================================================
+   14. Mobile (≤768px) — sidebar overlays content, closed by default
+   ============================================================ */
+
 @media (max-width: 768px) {
   #sidebar {
-    height: calc(100vh - 3rem);
+    position: fixed;
+    z-index: 100;
+    margin-left: 0;
     transform: translateX(-100%);
   }
-  #sidebar.open { transform: translateX(0); }
-  #sidebar.open::after {
-    content: "";
-    position: fixed; inset: 0; top: 3rem;
-    background: rgba(0,0,0,0.5);
-    z-index: -1;
+  #sidebar.open {
+    transform: translateX(0);
+    box-shadow: 4px 0 20px rgba(0,0,0,0.5);
   }
 
   #content { padding: var(--sp-4); }

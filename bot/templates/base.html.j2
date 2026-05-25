@@ -60,17 +60,24 @@
 
   var btn = document.getElementById('sidebar-toggle');
   var sidebar = document.getElementById('sidebar');
+  var mqMobile = window.matchMedia('(max-width: 768px)');
+
+  function setSidebar(open) {
+    sidebar.classList.toggle('open', open);
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  /* mobile: closed by default; desktop: open by default */
+  if (mqMobile.matches) setSidebar(false);
+
   btn.addEventListener('click', function(e){
     e.stopPropagation();
-    var open = sidebar.classList.toggle('open');
-    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    setSidebar(!sidebar.classList.contains('open'));
   });
-  document.addEventListener('click', function(e) {
-    if (sidebar.classList.contains('open') &&
-        !sidebar.contains(e.target) &&
-        e.target !== btn && !btn.contains(e.target)) {
-      sidebar.classList.remove('open');
-      btn.setAttribute('aria-expanded', 'false');
+  /* click on content area closes mobile overlay sidebar */
+  document.getElementById('content').addEventListener('click', function(e) {
+    if (mqMobile.matches && sidebar.classList.contains('open')) {
+      setSidebar(false);
     }
   });
 })();
