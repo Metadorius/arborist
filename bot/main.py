@@ -8,7 +8,7 @@ import discord
 from discord import app_commands
 
 from .archiver import Archiver
-from .config import get_discord_token, get_channel_ids, get_output_dir, get_site_dir
+from .config import get_discord_token, get_site_dir, get_config
 from .git_manager import GitManager
 
 logger = logging.getLogger("arborist")
@@ -23,8 +23,9 @@ class ArboristClient(discord.Client):
         intents.message_content = True
         intents.guilds = True
         super().__init__(intents=intents)
-        self._git = GitManager(get_output_dir())
-        self._archiver = Archiver(self, get_output_dir(), git_manager=self._git)
+        self._output = get_config().output_dir
+        self._git = GitManager(self._output)
+        self._archiver = Archiver(self, self._output, git_manager=self._git)
         self._tree = app_commands.CommandTree(self)
         self._synced = False
         self._http: aiohttp.ClientSession | None = None
@@ -38,7 +39,9 @@ class ArboristClient(discord.Client):
     async def setup_hook(self) -> None:
         self._http = aiohttp.ClientSession(timeout=_HTTP_TIMEOUT)
         self._archiver.set_session(self._http)
-        self._tree.add_command(_make_archive_command(self._archiver, get_channel_ids()))
+        self._tree.add_command(_make_archive_command(self._archiver, get_config().channel_ids))
+        for cmd in _make_config_commands():
+            self._tree.add_command(cmd)
         self._flusher_task = asyncio.create_task(self._git.run_flusher())
 
     async def close(self) -> None:
@@ -60,14 +63,14 @@ class ArboristClient(discord.Client):
         user_info = self.user
         logger.info("Logged in as %s (ID: %s)", getattr(user_info, "name", "?"), getattr(user_info, "id", "?"))
         logger.info("Connected to %d guild(s)", len(self.guilds))
-        logger.info("Watching channel IDs: %s", get_channel_ids())
+        logger.info("Watching channel IDs: %s", get_config().channel_ids)
 
         if not self._synced:
             await self._tree.sync()
             self._synced = True
-        _copy_site_files(get_site_dir(), get_output_dir())
+        _copy_site_files(get_site_dir(), self._output)
 
-        for cid in get_channel_ids():
+        for cid in get_config().channel_ids:
             ch = self.get_channel(int(cid))
             if ch is None:
                 logger.warning("  Channel %s not found", cid)
@@ -81,7 +84,7 @@ class ArboristClient(discord.Client):
     # ------------------------------------------------------------------
 
     def _is_watched(self, channel_id: int) -> bool:
-        return str(channel_id) in get_channel_ids()
+        return str(channel_id) in get_config().channel_ids
 
     def _is_watched_thread(self, thread: discord.Thread | None) -> bool:
         return thread is not None and self._is_watched(thread.parent_id)
@@ -124,7 +127,7 @@ class ArboristClient(discord.Client):
         if thread is None or not self._is_watched_thread(thread) or self._http is None:
             return
         logger.debug("New message in %s", thread.name)
-        thread_dir = get_output_dir() / "channels" / str(thread.parent_id) / str(thread.id)
+        thread_dir = self._output / "channels" / str(thread.parent_id) / str(thread.id)
         thread_dir.mkdir(parents=True, exist_ok=True)
         channel_name = thread.parent.name if isinstance(thread.parent, discord.ForumChannel) else ""
 
@@ -146,7 +149,7 @@ class ArboristClient(discord.Client):
         if self._http is None:
             return
         logger.debug("Message edited in %s", thread.name)
-        thread_dir = get_output_dir() / "channels" / str(thread.parent_id) / str(thread.id)
+        thread_dir = self._output / "channels" / str(thread.parent_id) / str(thread.id)
         channel_name = thread.parent.name if isinstance(thread.parent, discord.ForumChannel) else ""
         await self._archiver.archive_message(after, thread_dir, self._http, channel_name, thread.name)
 
@@ -163,7 +166,7 @@ class ArboristClient(discord.Client):
             return
         if not self._is_watched(channel.parent_id):
             return
-        md_path = get_output_dir() / "channels" / str(channel.parent_id) / str(channel.id) / f"{message.id}.md"
+        md_path = self._output / "channels" / str(channel.parent_id) / str(channel.id) / f"{message.id}.md"
         if md_path.exists():
             md_path.unlink()
             self._git.mark_changed()
@@ -199,6 +202,61 @@ def _make_archive_command(archiver: Archiver, channel_ids: list[str]) -> app_com
             await archiver.archive_channel(int(cid_str))
         await interaction.followup.send("Archive complete.", ephemeral=True)
     return archive
+
+
+# ------------------------------------------------------------------
+# Slash commands: /config
+# ------------------------------------------------------------------
+
+def _make_config_commands() -> list[app_commands.Command]:
+    from .config import get_config
+
+    @app_commands.command(name="config-show", description="Show current configuration")
+    @app_commands.default_permissions(manage_guild=True)
+    @app_commands.guild_only()
+    async def config_show(interaction: discord.Interaction) -> None:
+        cfg = get_config()
+        lines = [
+            f"**Output dir:** `{cfg.output_dir}`",
+            f"**Watched channels:** {', '.join(f'`{c}`' for c in cfg.channel_ids) or '*none*'}",
+            f"**Git remote:** `{cfg.git_remote_url or '*not set*'}`",
+            f"**Git branch:** `{cfg.git_branch}`",
+            f"**Git user:** `{cfg.git_user_name} <{cfg.git_user_email}>`",
+        ]
+        await interaction.response.send_message("\n".join(lines), ephemeral=True)
+
+    @app_commands.command(name="config-watch", description="Add a forum channel to the watchlist")
+    @app_commands.describe(channel_id="Channel ID to watch")
+    @app_commands.default_permissions(manage_guild=True)
+    @app_commands.guild_only()
+    async def config_watch(interaction: discord.Interaction, channel_id: str) -> None:
+        cfg = get_config()
+        if cfg.add_channel(channel_id):
+            await interaction.response.send_message(f"Now watching channel `{channel_id}`.", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"Channel `{channel_id}` is already watched.", ephemeral=True)
+
+    @app_commands.command(name="config-unwatch", description="Remove a forum channel from the watchlist")
+    @app_commands.describe(channel_id="Channel ID to stop watching")
+    @app_commands.default_permissions(manage_guild=True)
+    @app_commands.guild_only()
+    async def config_unwatch(interaction: discord.Interaction, channel_id: str) -> None:
+        cfg = get_config()
+        if cfg.remove_channel(channel_id):
+            await interaction.response.send_message(f"Stopped watching channel `{channel_id}`.", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"Channel `{channel_id}` was not in the watchlist.", ephemeral=True)
+
+    @app_commands.command(name="config-git-remote", description="Set the git remote URL for pushing")
+    @app_commands.describe(url="Git remote URL (e.g. https://github.com/user/repo.git)")
+    @app_commands.default_permissions(manage_guild=True)
+    @app_commands.guild_only()
+    async def config_git_remote(interaction: discord.Interaction, url: str) -> None:
+        cfg = get_config()
+        cfg.git_remote_url = url
+        await interaction.response.send_message(f"Git remote set to `{url}`.", ephemeral=True)
+
+    return [config_show, config_watch, config_unwatch, config_git_remote]
 
 
 def _copy_site_files(site_dir: Path, output_dir: Path) -> None:

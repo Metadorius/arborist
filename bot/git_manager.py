@@ -27,6 +27,27 @@ def _redact_url(url: str | None) -> str:
     return urlunsplit(parts)
 
 
+def _ensure_origin(repo: git.Repo, url: str) -> None:
+    """Create or update the 'origin' remote."""
+    try:
+        origin = repo.remotes.origin
+        if list(origin.urls) != [url]:
+            origin.set_url(url)
+            logger.info("Updated origin remote to %s", _redact_url(url))
+    except (AttributeError, ValueError):
+        repo.create_remote("origin", url)
+        logger.info("Created origin remote: %s", _redact_url(url))
+
+
+def _checkout_or_create(repo: git.Repo, branch: str) -> None:
+    """Checkout `branch`, creating it from HEAD if it doesn't exist."""
+    if branch in repo.heads:
+        repo.heads[branch].checkout()
+    else:
+        repo.git.checkout("-b", branch)
+        logger.info("Created branch: %s", branch)
+
+
 class GitManager:
     """Manages a git repo for the output directory with debounced commits."""
 
@@ -37,16 +58,6 @@ class GitManager:
         self._pending = False
         self._repo: git.Repo | None = None
         self._has_unpushed = False
-
-        # Resolve remote/branch once up front so logging never NameErrors.
-        try:
-            from .config import get_git_remote_url, get_git_branch
-            self._remote_url = get_git_remote_url()
-            self._branch = get_git_branch()
-        except ValueError:
-            self._remote_url = None
-            self._branch = "main"
-            logger.info("No remote configured, working locally")
 
     def ensure_repo(self) -> git.Repo:
         """Open or init a git repo in the output directory."""
@@ -66,22 +77,27 @@ class GitManager:
             # Create initial empty commit so HEAD resolves
             self._repo.index.commit("Initialize repository")
 
-            if self._remote_url:
+            # Rename branch if target differs from "main"
+            from .config import get_config
+            target_branch = get_config().git_branch
+            if target_branch != "main":
                 try:
-                    self._repo.create_remote("origin", self._remote_url)
+                    self._repo.git.branch("-m", "main", target_branch)
+                    logger.info("Renamed branch: main -> %s", target_branch)
                 except git.GitCommandError as e:
-                    logger.warning("Failed to create remote: %s", e)
+                    logger.warning("Could not rename branch: %s", e)
 
         self._set_user_config()
         return self._repo
 
     def _set_user_config(self) -> None:
-        from .config import get_git_user_name, get_git_user_email
+        from .config import get_config
         if self._repo is None:
             return
+        cfg = get_config()
         with self._repo.config_writer() as cw:
-            cw.set_value("user", "name", get_git_user_name())
-            cw.set_value("user", "email", get_git_user_email())
+            cw.set_value("user", "name", cfg.git_user_name)
+            cw.set_value("user", "email", cfg.git_user_email)
 
     def mark_changed(self) -> None:
         """Signal that content has changed. Triggers a debounced commit."""
@@ -95,6 +111,11 @@ class GitManager:
         """Commit pending changes and push."""
         if not self._pending:
             return
+
+        from .config import get_config
+        cfg = get_config()
+        remote_url = cfg.git_remote_url or None
+        push_branch = cfg.git_branch
 
         repo = self.ensure_repo()
 
@@ -118,11 +139,15 @@ class GitManager:
             repo.index.commit(commit_msg)
             logger.info("Committed: %s", commit_msg)
 
-            # Push (skip if no remote, e.g. in tests)
-            if repo.remotes:
+            # Push
+            if remote_url:
+                _ensure_origin(repo, remote_url)
                 origin = repo.remotes.origin
-                origin.push()
-                logger.info("Pushed to %s (%s)", _redact_url(self._remote_url), self._branch)
+                # switch to target branch if needed, then push with upstream
+                if repo.active_branch.name != push_branch:
+                    _checkout_or_create(repo, push_branch)
+                origin.push(f"{push_branch}:{push_branch}", set_upstream=True)
+                logger.info("Pushed to %s (%s)", _redact_url(remote_url), push_branch)
 
             self._last_commit = time.time()
             self._pending = False

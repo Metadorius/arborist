@@ -1,0 +1,12 @@
+# Arborist runtime configuration
+# Managed via /config slash commands, but editable by hand too.
+
+output_dir: "./output"
+
+channel_ids: []
+
+git:
+  remote_url: ""
+  user_name: "Arborist Bot"
+  user_email: "arborist@example.com"
+  branch: "gh-pages"
