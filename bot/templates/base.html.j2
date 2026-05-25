@@ -7,15 +7,15 @@
 <link rel="stylesheet" href="{{ root }}styles.css">
 </head>
 <body>
+<div id="topbar">
+  <button id="sidebar-toggle" type="button"
+          aria-controls="sidebar" aria-expanded="false" aria-label="Toggle menu">
+    <span class="sidebar-toggle-icon" aria-hidden="true"></span>
+  </button>
+  <span class="topbar-title">🌳 Arborist</span>
+  <span class="topbar-spacer"></span>
+</div>
 <div id="sidebar">
-  <div id="sidebar-header">
-    <button id="sidebar-toggle" type="button"
-            aria-controls="channel-list" aria-expanded="false" aria-label="Toggle menu">
-      <span class="sidebar-toggle-icon" aria-hidden="true"></span>
-    </button>
-    <h1><a href="{{ root }}index.html">🌳 Arborist</a></h1>
-    <span class="sidebar-header-spacer" aria-hidden="true"></span>
-  </div>
   <nav id="channel-list">
     {% for ch in tree %}
       <details class="tree-channel">
@@ -57,10 +57,21 @@
   if (best) best.classList.add('active');
   var p = best ? best.closest('details') : null;
   if (p) p.open = true;
+
   var btn = document.getElementById('sidebar-toggle');
-  btn.addEventListener('click', function(){
-    var open = document.getElementById('sidebar').classList.toggle('open');
+  var sidebar = document.getElementById('sidebar');
+  btn.addEventListener('click', function(e){
+    e.stopPropagation();
+    var open = sidebar.classList.toggle('open');
     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  document.addEventListener('click', function(e) {
+    if (sidebar.classList.contains('open') &&
+        !sidebar.contains(e.target) &&
+        e.target !== btn && !btn.contains(e.target)) {
+      sidebar.classList.remove('open');
+      btn.setAttribute('aria-expanded', 'false');
+    }
   });
 })();
 </script>
