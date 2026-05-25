@@ -176,15 +176,17 @@ a:hover { color: var(--accent-hover); }
 
 .tree-channel summary {
   list-style: none;
+  cursor: pointer;
+}
+.tree-channel summary::-webkit-details-marker { display: none; }
+.tree-channel-link {
+  display: block;
   padding: var(--sp-2) var(--sp-3);
   font-size: var(--fs-sm);
   font-weight: var(--fw-semibold);
   color: var(--text);
-  cursor: pointer;
+  transition: color 0.15s;
 }
-.tree-channel summary::-webkit-details-marker { display: none; }
-.tree-channel summary a,
-.tree-channel-link { color: inherit; transition: color 0.15s; }
 .tree-channel-link:hover,
 .tree-channel-link.active { color: var(--accent); text-decoration: none; }
 
