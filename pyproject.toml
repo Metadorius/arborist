@@ -15,16 +15,20 @@ dependencies = [
     "pyyaml>=6.0.3",
 ]
 
-[project.optional-dependencies]
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "playwright: browser-based visual tests",
+]
+
+[tool.uv]
+package = false
+
+[dependency-groups]
 dev = [
+    "pytest-playwright>=0.8.0",
     "pytest>=8",
     "pytest-asyncio>=0.24",
     "pytest-aiohttp>=1.0",
 ]
-
-[tool.pytest.ini_options]
-asyncio_mode = "auto"
-testpaths = ["tests"]
-
-[tool.uv]
-package = false
