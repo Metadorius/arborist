@@ -15,6 +15,8 @@ Discord plugins (all registered as inline parsers so mistune doesn't escape them
 Code blocks get syntax highlighting via custom DiscordRenderer (Pygments).
 """
 
+import datetime as _dt
+
 import mistune
 from mistune import escape as _escape
 
@@ -37,7 +39,7 @@ class DiscordRenderer(mistune.HTMLRenderer):
             return _highlight(code, lexer, HtmlFormatter())
         except Exception:
             return (
-                f'<pre><code class="language-{_escape(info)}"'
+                f'<pre><code class="language-{_escape(info)}">'
                 f"{_escape(code)}</code></pre>\n"
             )
 
@@ -212,8 +214,30 @@ def _parse_timestamp(_, m, state):
     return m.end()
 
 
+_TS_STYLE_FMT = {
+    "t": "%H:%M",
+    "T": "%H:%M:%S",
+    "d": "%Y-%m-%d",
+    "D": "%B %d, %Y",
+    "f": "%B %d, %Y %H:%M",
+    "F": "%A, %B %d, %Y %H:%M",
+    "R": None,  # relative — fall back to absolute ISO
+}
+
+
 def _render_timestamp(renderer, text, **kwargs):
-    return '<span class="discord-timestamp">t</span>'
+    try:
+        ts = int(text)
+        dt = _dt.datetime.fromtimestamp(ts, tz=_dt.timezone.utc)
+    except (TypeError, ValueError):
+        return '<span class="discord-timestamp"></span>'
+    style = kwargs.get("style") or "f"
+    fmt = _TS_STYLE_FMT.get(style, _TS_STYLE_FMT["f"])
+    label = dt.strftime(fmt) if fmt else dt.isoformat()
+    return (
+        f'<time class="discord-timestamp" '
+        f'datetime="{dt.isoformat()}">{_escape(label)}</time>'
+    )
 
 def timestamp_plugin(md):
     md.inline.register("discord_timestamp", _TIMESTAMP_RE, _parse_timestamp, before="linebreak")

@@ -86,24 +86,24 @@ class TestRenderMessage:
         msg = FakeMessage(content="Hello world")
         result = render_message(msg, channel_name="assets", thread_name="cool-pack")
         assert "Hello world" in result
-        assert "message_id: 111" in result
-        assert "channel_name: assets" in result
-        assert "thread_name: cool-pack" in result
-        assert "author: TestUser" in result
+        assert 'message_id: "111"' in result
+        assert 'channel_name: "assets"' in result
+        assert 'thread_name: "cool-pack"' in result
+        assert 'author: "TestUser"' in result
 
     def test_yaml_frontmatter(self):
         msg = FakeMessage(id=42, content="Test")
         result = render_message(msg, channel_name="ch", thread_name="th")
         assert result.startswith("---")
         assert "---" in result[3:]
-        assert "message_id: 42" in result
+        assert 'message_id: "42"' in result
 
     def test_with_attachments(self):
         att = FakeAttachment(id=77, filename="doc.pdf", size=2048, content_type="application/pdf")
         msg = FakeMessage(content="See attached", attachments=[att])
         result = render_message(msg)
         assert "doc.pdf" in result
-        assert "id: 77" in result
+        assert 'id: "77"' in result
         assert "size: 2048" in result
 
     def test_with_image_attachment(self):
@@ -137,5 +137,5 @@ class TestRenderMessage:
     def test_channel_and_thread_in_frontmatter(self):
         msg = FakeMessage()
         result = render_message(msg, channel_name="assets", thread_name="cool-pack")
-        assert "channel_name: assets" in result
-        assert "thread_name: cool-pack" in result
+        assert 'channel_name: "assets"' in result
+        assert 'thread_name: "cool-pack"' in result

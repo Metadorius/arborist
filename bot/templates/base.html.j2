@@ -41,12 +41,16 @@
 </main>
 <script>
 (function(){
-  var path = location.pathname.replace(/\/$/, '');
+  var path = location.pathname.replace(/\/index\.html$/, '').replace(/\/$/, '');
   var links = document.querySelectorAll('#channel-list a[data-path]');
   var best = null, bestLen = 0;
   for (var i = 0; i < links.length; i++) {
     var dp = links[i].getAttribute('data-path');
-    if (dp && path.indexOf(dp) !== -1 && dp.length > bestLen) {
+    if (!dp) continue;
+    var matched = (path === dp) ||
+                  path.endsWith('/' + dp) ||
+                  path.indexOf('/' + dp + '/') !== -1;
+    if (matched && dp.length > bestLen) {
       best = links[i]; bestLen = dp.length;
     }
   }

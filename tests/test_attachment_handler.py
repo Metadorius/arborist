@@ -38,3 +38,14 @@ class TestDownloadAttachment:
         # Should return the existing path without downloading
         result = await download_attachment(att, tmp_path, None)
         assert result == existing
+
+    @pytest.mark.asyncio
+    async def test_rejects_path_traversal(self, tmp_path):
+        """Filenames that would escape the attachments dir are rejected."""
+        for bad in ("../evil.txt", "..", "", "a/b.txt", "a\\b.txt"):
+            att = FakeAttachment(id=99, filename=bad, size=10)
+            result = await download_attachment(att, tmp_path, None)
+            assert result is None, f"should reject filename {bad!r}"
+        # The dangerous path was never created.
+        assert not (tmp_path / "99" / "evil.txt").exists()
+        assert not (tmp_path.parent / "evil.txt").exists()

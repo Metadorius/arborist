@@ -131,11 +131,14 @@ class TestDiscordMentions:
 class TestDiscordTimestamp:
     def test_basic(self, conv):
         html = conv("see <t:1234567890>")
-        assert '<span class="discord-timestamp">' in html
+        assert 'class="discord-timestamp"' in html
+        assert 'datetime="2009-02-13T23:31:30+00:00"' in html
 
     def test_with_style(self, conv):
         html = conv("<t:1234567890:R>")
-        assert '<span class="discord-timestamp">' in html
+        assert 'class="discord-timestamp"' in html
+        # 'R' style falls back to ISO string in the visible label
+        assert '2009-02-13T23:31:30+00:00' in html
 
 
 class TestDiscordCombined:
@@ -156,8 +159,11 @@ class TestDiscordCombined:
 
 class TestDiscordRenderer:
     def test_pygments_fallback(self):
-        """When pygments lookup fails, render plain code block."""
+        """When pygments lookup fails, render plain code block with valid HTML."""
         r = DiscordRenderer()
         result = r.block_code("x = 1", "nonexistent_lang_xyz")
         assert "<pre><code" in result
         assert "x = 1" in result
+        # Code block must be well-formed — `<code ...>` needs its closing `>`.
+        assert '">' in result
+        assert "</code></pre>" in result

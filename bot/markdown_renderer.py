@@ -1,19 +1,31 @@
 """Convert Discord messages to markdown with YAML frontmatter."""
 
 import datetime
+import json
+from pathlib import Path
 from typing import Any
 
 import discord
-from jinja2 import Environment, FileSystemLoader, select_autoescape
+from jinja2 import Environment, FileSystemLoader
 
-_tmpl_env: Environment | None = None
+_TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
+
+
+def _yaml_str(value: Any) -> str:
+    """Quote a value safely for YAML scalar context (JSON is YAML-compatible)."""
+    if value is None:
+        return "null"
+    return json.dumps(value, ensure_ascii=False)
+
+
+_tmpl_env: Environment = Environment(
+    loader=FileSystemLoader(str(_TEMPLATES_DIR)),
+    autoescape=False,
+)
+_tmpl_env.filters["yaml_str"] = _yaml_str
 
 
 def _get_env() -> Environment:
-    global _tmpl_env
-    if _tmpl_env is None:
-        loader = FileSystemLoader("bot/templates")
-        _tmpl_env = Environment(loader=loader, autoescape=select_autoescape())
     return _tmpl_env
 
 

@@ -1,12 +1,30 @@
 """Git operations: stage, commit (debounced), push."""
 
+import asyncio
 import logging
 import time
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 import git
 
 logger = logging.getLogger("arborist.git")
+
+
+def _redact_url(url: str | None) -> str:
+    """Strip userinfo (user:password) from a URL for safe logging."""
+    if not url:
+        return "<unset>"
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return "<unparseable>"
+    if parts.username or parts.password:
+        netloc = parts.hostname or ""
+        if parts.port:
+            netloc = f"{netloc}:{parts.port}"
+        parts = parts._replace(netloc=netloc)
+    return urlunsplit(parts)
 
 
 class GitManager:
@@ -19,6 +37,16 @@ class GitManager:
         self._pending = False
         self._repo: git.Repo | None = None
         self._has_unpushed = False
+
+        # Resolve remote/branch once up front so logging never NameErrors.
+        try:
+            from .config import get_git_remote_url, get_git_branch
+            self._remote_url = get_git_remote_url()
+            self._branch = get_git_branch()
+        except ValueError:
+            self._remote_url = None
+            self._branch = "main"
+            logger.info("No remote configured, working locally")
 
     def ensure_repo(self) -> git.Repo:
         """Open or init a git repo in the output directory."""
@@ -38,16 +66,11 @@ class GitManager:
             # Create initial empty commit so HEAD resolves
             self._repo.index.commit("Initialize repository")
 
-            # Try to set remote if configured
-            try:
-                from .config import get_git_remote_url, get_git_branch
-                self._remote_url = get_git_remote_url()
-                self._branch = get_git_branch()
-                origin = self._repo.create_remote("origin", self._remote_url)
-            except (ValueError, Exception):
-                self._remote_url = "local"
-                self._branch = "main"
-                logger.info("No remote configured, working locally")
+            if self._remote_url:
+                try:
+                    self._repo.create_remote("origin", self._remote_url)
+                except git.GitCommandError as e:
+                    logger.warning("Failed to create remote: %s", e)
 
         self._set_user_config()
         return self._repo
@@ -76,8 +99,8 @@ class GitManager:
         repo = self.ensure_repo()
 
         try:
-            # Stage all changes
-            repo.index.add("*")
+            # Stage all changes (porcelain `git add -A`)
+            repo.git.add(A=True)
 
             # Check if anything changed — skip if first commit (no HEAD)
             try:
@@ -96,10 +119,10 @@ class GitManager:
             logger.info("Committed: %s", commit_msg)
 
             # Push (skip if no remote, e.g. in tests)
-            if hasattr(repo, "remotes") and repo.remotes:
+            if repo.remotes:
                 origin = repo.remotes.origin
                 origin.push()
-                logger.info("Pushed to %s (%s)", self._remote_url, self._branch)
+                logger.info("Pushed to %s (%s)", _redact_url(self._remote_url), self._branch)
 
             self._last_commit = time.time()
             self._pending = False
@@ -113,3 +136,12 @@ class GitManager:
         self._pending = True
         self._debounce = 0
         self._flush()
+
+    async def run_flusher(self) -> None:
+        """Background task: periodically flush pending changes after the debounce window."""
+        while True:
+            await asyncio.sleep(max(self._debounce, 1))
+            if self._pending and (time.time() - self._last_commit) >= self._debounce:
+                # Run the (sync, blocking) flush in a worker thread so we don't
+                # stall the event loop on git operations / network push.
+                await asyncio.to_thread(self._flush)

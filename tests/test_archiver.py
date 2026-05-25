@@ -1,5 +1,6 @@
 """Integration tests for the archiver with mocked Discord objects."""
 
+import asyncio
 from pathlib import Path
 from unittest.mock import patch
 
@@ -136,7 +137,6 @@ class TestArchiver:
         client = FakeClient(channels={555: channel})
         archiver = Archiver(client, tmp_path / "output")
 
-        import asyncio
         asyncio.run(archiver.archive_channel(555))
 
         out = tmp_path / "output"
@@ -146,13 +146,14 @@ class TestArchiver:
     @patch("bot.archiver.isinstance", return_value=True)
     def test_archive_with_thread(self, mock_isinstance, tmp_path):
         """Archiving a channel with one thread and one message."""
-        msg = FakeMessage(id=10, content="First post!")
-        thread = FakeThread(id=100, name="Hello", parent_id=777, history_messages=[msg])
-        channel = FakeChannel(id=777, name="general", threads=[thread])
+        channel = FakeChannel(id=777, name="general")
+        thread = FakeThread(id=100, name="Hello", parent_id=777, parent=channel)
+        msg = FakeMessage(id=10, content="First post!", channel=thread)
+        thread._history = [msg]
+        channel.threads_list = [thread]
         client = FakeClient(channels={777: channel})
         archiver = Archiver(client, tmp_path / "output")
 
-        import asyncio
         asyncio.run(archiver.archive_channel(777))
 
         # Check structure
@@ -164,7 +165,7 @@ class TestArchiver:
         # Check markdown content
         md_content = (thread_dir / "10.md").read_text()
         assert "First post!" in md_content
-        assert "message_id: 10" in md_content
+        assert 'message_id: "10"' in md_content
 
         # Check HTML contains the message
         html = (thread_dir / "index.html").read_text()
@@ -185,7 +186,6 @@ class TestArchiver:
         client = FakeClient(channels={999: channel})
         archiver = Archiver(client, tmp_path / "output")
 
-        import asyncio
         asyncio.run(archiver.archive_channel(999))
 
         thread_dir = tmp_path / "output" / "channels" / "999" / "200"
@@ -212,20 +212,65 @@ class TestArchiver:
             asyncio.run(a.archive_channel(99999))
 
     @patch("bot.archiver.isinstance", return_value=True)
+    def test_thread_pages_have_complete_sidebar(self, mock_isinstance, tmp_path):
+        """Every thread page in a channel must list every sibling thread in the sidebar
+        — not just those that already happened to be on disk when this page was rendered."""
+        channel = FakeChannel(id=42, name="lab")
+        threads = []
+        for tid, tname in [(1, "alpha"), (2, "beta"), (3, "gamma")]:
+            t = FakeThread(id=tid, name=tname, parent_id=42, parent=channel)
+            t._history = [FakeMessage(id=tid * 10, content=f"hi from {tname}", channel=t)]
+            threads.append(t)
+        channel.threads_list = threads
+        client = FakeClient(channels={42: channel})
+        archiver = Archiver(client, tmp_path / "output")
+
+        asyncio.run(archiver.archive_channel(42))
+
+        for t in threads:
+            page = (tmp_path / "output" / "channels" / "42" / str(t.id) / "index.html").read_text()
+            for sibling in threads:
+                assert sibling.name in page, f"{t.name}'s page missing sibling {sibling.name}"
+
+    @patch("bot.archiver.isinstance", return_value=True)
+    def test_frontmatter_with_colon_in_name(self, mock_isinstance, tmp_path):
+        """Thread names containing YAML-hazardous characters round-trip cleanly."""
+        from bot.archiver import _read_frontmatter
+        channel = FakeChannel(id=55, name="qa")
+        thread = FakeThread(id=500, name="Question: best? 'really'", parent_id=55, parent=channel)
+        msg = FakeMessage(id=5001, content="hi", channel=thread)
+        thread._history = [msg]
+        channel.threads_list = [thread]
+        client = FakeClient(channels={55: channel})
+        archiver = Archiver(client, tmp_path / "output")
+
+        asyncio.run(archiver.archive_channel(55))
+
+        md_path = tmp_path / "output" / "channels" / "55" / "500" / "5001.md"
+        data = _read_frontmatter(md_path)
+        assert data.get("thread_name") == "Question: best? 'really'"
+        # And the sidebar/channel-page reader picks it up too.
+        th_dir = md_path.parent
+        assert Archiver._read_thread_name(th_dir) == "Question: best? 'really'"
+
+    @patch("bot.archiver.isinstance", return_value=True)
     def test_home_page_lists_channels(self, mock_isinstance, tmp_path):
         """Root index.html lists all archived channels."""
-        msg = FakeMessage(id=1, content="Hello")
-        thread1 = FakeThread(id=10, name="Th A", parent_id=300, history_messages=[msg])
-        ch1 = FakeChannel(id=300, name="music", threads=[thread1])
+        ch1 = FakeChannel(id=300, name="music")
+        thread1 = FakeThread(id=10, name="Th A", parent_id=300, parent=ch1)
+        msg = FakeMessage(id=1, content="Hello", channel=thread1)
+        thread1._history = [msg]
+        ch1.threads_list = [thread1]
 
-        msg2 = FakeMessage(id=2, content="World")
-        thread2 = FakeThread(id=20, name="Th B", parent_id=301, history_messages=[msg2])
-        ch2 = FakeChannel(id=301, name="code", threads=[thread2])
+        ch2 = FakeChannel(id=301, name="code")
+        thread2 = FakeThread(id=20, name="Th B", parent_id=301, parent=ch2)
+        msg2 = FakeMessage(id=2, content="World", channel=thread2)
+        thread2._history = [msg2]
+        ch2.threads_list = [thread2]
 
         client = FakeClient(channels={300: ch1, 301: ch2})
         archiver = Archiver(client, tmp_path / "output")
 
-        import asyncio
         asyncio.run(archiver.archive_channel(300))
         asyncio.run(archiver.archive_channel(301))
 

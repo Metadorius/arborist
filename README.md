@@ -72,10 +72,6 @@ output/
             └── {message_id}.md  ← raw markdown reference
 ```
 
-## Download readable backup
-
-On the site, click "Download readable backup" — it fetches the archive, renames ID folders to human names (from YAML frontmatter), and triggers a browser download with a progress bar.
-
 ## Design
 
 Dark theme, Discord-like layout, grassy green accent (`#4ade80`), faint green-black background (`#0e100f`).

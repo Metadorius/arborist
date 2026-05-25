@@ -1,26 +1,26 @@
 ---
-message_id: {{ message_id }}
-channel_id: {{ channel_id }}
-channel_name: {{ channel_name }}
-{% if thread_id %}thread_id: {{ thread_id }}{% endif %}
-{% if thread_name %}thread_name: {{ thread_name }}{% endif %}
-author: {{ author }}
-author_id: {{ author_id }}
-timestamp: {{ timestamp }}
-{% if edited %}edited: {{ edited }}{% endif %}
+message_id: {{ message_id | yaml_str }}
+channel_id: {{ channel_id | yaml_str }}
+channel_name: {{ channel_name | yaml_str }}
+{% if thread_id %}thread_id: {{ thread_id | yaml_str }}{% endif %}
+{% if thread_name %}thread_name: {{ thread_name | yaml_str }}{% endif %}
+author: {{ author | yaml_str }}
+author_id: {{ author_id | yaml_str }}
+timestamp: {{ timestamp | yaml_str }}
+{% if edited %}edited: {{ edited | yaml_str }}{% endif %}
 pinned: {{ pinned | lower }}
-jump_url: {{ jump_url }}
+jump_url: {{ jump_url | yaml_str }}
 attachments:
 {% for att in attachments %}
-  - id: {{ att.id }}
-    filename: {{ att.filename }}
+  - id: {{ att.id | yaml_str }}
+    filename: {{ att.filename | yaml_str }}
     size: {{ att.size }}
     is_image: {{ att.is_image | lower }}
     is_video: {{ att.is_video | lower }}
 {% endfor %}
 reactions:
 {% for r in reactions %}
-  - emoji: {{ r.emoji }}
+  - emoji: {{ r.emoji | yaml_str }}
     count: {{ r.count }}
 {% endfor %}
 ---

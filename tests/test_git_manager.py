@@ -104,3 +104,25 @@ class TestGitManager:
         committed_files = list(repo.head.commit.stats.files.keys())
         assert "x.txt" in committed_files
         assert "y.txt" in committed_files
+
+    def test_existing_repo_flush_does_not_raise(self, tmp_path, caplog):
+        """Regression for an AttributeError when pushing from an existing repo
+        whose .git already existed at construction time."""
+        repo_dir = tmp_path / "repo"
+        repo_dir.mkdir()
+        # Prime the repo on disk first.
+        primer = GitManager(repo_dir, debounce_seconds=0)
+        primer.ensure_repo()
+
+        # New manager opens the existing .git — must not blow up on flush.
+        mgr = GitManager(repo_dir, debounce_seconds=0)
+        (repo_dir / "z.txt").write_text("z")
+        mgr.mark_changed()
+        # No assertion needed — the test fails if an exception escapes.
+
+    def test_redact_url_strips_credentials(self):
+        from bot.git_manager import _redact_url
+        assert _redact_url("https://user:tok@github.com/x/y.git") == "https://github.com/x/y.git"
+        assert _redact_url(None) == "<unset>"
+        # No credentials → unchanged.
+        assert _redact_url("https://github.com/x/y.git") == "https://github.com/x/y.git"
