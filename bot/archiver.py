@@ -27,6 +27,16 @@ def _format_size(size: int) -> str:
     return f"{size:.1f} TB"
 
 
+def _extract_tags(thread: discord.Thread) -> list[dict]:
+    """Extract applied forum tags from a thread."""
+    tags = []
+    if hasattr(thread, "applied_tags") and thread.applied_tags:
+        for t in thread.applied_tags:
+            emoji = str(t.emoji) if t.emoji else None
+            tags.append({"name": t.name, "emoji": emoji})
+    return tags
+
+
 def _get_jinja_env() -> Environment:
     env = Environment(
         loader=FileSystemLoader(str(_TEMPLATES_DIR)),
@@ -237,7 +247,11 @@ class Archiver:
         html = tmpl.render(
             root=self._root(index_path, self._output),
             tree=self._tree_or_build(tree),
-            thread={"id": str(thread.id), "name": thread.name},
+            thread={
+                "id": str(thread.id),
+                "name": thread.name,
+                "tags": _extract_tags(thread),
+            },
             channel={"id": str(thread.parent_id), "name": channel_name},
             messages=msg_data,
         )

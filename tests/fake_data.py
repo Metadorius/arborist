@@ -75,6 +75,12 @@ class FakeReaction:
         self.count = count
 
 
+class FakeForumTag:
+    def __init__(self, name: str, emoji: str | None = None):
+        self.name = name
+        self.emoji = type("E", (), {"__str__": lambda s: emoji})() if emoji else None
+
+
 import datetime as _dt
 def _utc(*a):
     return _dt.datetime(*a, tzinfo=_dt.timezone.utc)
@@ -98,12 +104,13 @@ class FakeMessage:
 
 
 class FakeThread:
-    def __init__(self, id: int, name: str, parent_id: int, parent, messages: list):
+    def __init__(self, id: int, name: str, parent_id: int, parent, messages: list, tags=None):
         self.id = id
         self.name = name
         self.parent_id = parent_id
         self.parent = parent
         self._messages = messages
+        self.applied_tags = tags or []
     def history(self, limit=None, oldest_first=True):
         async def _gen():
             for m in self._messages:
@@ -147,20 +154,32 @@ def build_fake_data():
     ch_tuts = FakeChannel(222, "tutorials")
     ch_show = FakeChannel(333, "show-and-tell")
 
-    thread_assets = FakeThread(10001, "Cool Asset Pack v2", 111, ch_assets, [])
-    thread_assets_pbr = FakeThread(10002, "Free PBR Materials Pack", 111, ch_assets, [])
-    thread_assets_naming = FakeThread(10003, "Question: best asset naming convention?", 111, ch_assets, [])
-    thread_assets_village = FakeThread(10004, "WIP: medieval village kit", 111, ch_assets, [])
+    thread_assets = FakeThread(10001, "Cool Asset Pack v2", 111, ch_assets, [],
+                               tags=[FakeForumTag("Release", "📦"), FakeForumTag("Asset Pack", "🎨")])
+    thread_assets_pbr = FakeThread(10002, "Free PBR Materials Pack", 111, ch_assets, [],
+                                   tags=[FakeForumTag("Free", "🆓"), FakeForumTag("Materials", "🧱")])
+    thread_assets_naming = FakeThread(10003, "Question: best asset naming convention?", 111, ch_assets, [],
+                                      tags=[FakeForumTag("Question", "❓")])
+    thread_assets_village = FakeThread(10004, "WIP: medieval village kit", 111, ch_assets, [],
+                                       tags=[FakeForumTag("WIP", "🚧"), FakeForumTag("Modular", "🧩")])
 
-    thread_tuts = FakeThread(20001, "Blender Basics -- Intermediate", 222, ch_tuts, [])
-    thread_tuts_rig = FakeThread(20002, "Rigging tutorial: skeleton setup", 222, ch_tuts, [])
-    thread_tuts_sp = FakeThread(20003, "Substance Painter for beginners", 222, ch_tuts, [])
+    thread_tuts = FakeThread(20001, "Blender Basics -- Intermediate", 222, ch_tuts, [],
+                             tags=[FakeForumTag("Guide", "📖"), FakeForumTag("Blender", "🔷")])
+    thread_tuts_rig = FakeThread(20002, "Rigging tutorial: skeleton setup", 222, ch_tuts, [],
+                                 tags=[FakeForumTag("Guide", "📖"), FakeForumTag("Rigging", "🦴")])
+    thread_tuts_sp = FakeThread(20003, "Substance Painter for beginners", 222, ch_tuts, [],
+                                tags=[FakeForumTag("Guide", "📖"), FakeForumTag("Texturing", "🖌️")])
 
-    thread_show = FakeThread(30001, "Procedural Texture Experiment", 333, ch_show, [])
-    thread_show_dragon = FakeThread(30002, "Sculpting practice: dragon head", 333, ch_show, [])
-    thread_show_anim = FakeThread(30003, "Animated character demo", 333, ch_show, [])
-    thread_show_scene = FakeThread(30004, "First completed scene!", 333, ch_show, [])
-    thread_show_light = FakeThread(30005, "Lighting study collection", 333, ch_show, [])
+    thread_show = FakeThread(30001, "Procedural Texture Experiment", 333, ch_show, [],
+                             tags=[FakeForumTag("Showcase", "🌟"), FakeForumTag("Procedural", "🔮")])
+    thread_show_dragon = FakeThread(30002, "Sculpting practice: dragon head", 333, ch_show, [],
+                                    tags=[FakeForumTag("WIP", "🚧"), FakeForumTag("Sculpting", "🗿")])
+    thread_show_anim = FakeThread(30003, "Animated character demo", 333, ch_show, [],
+                                  tags=[FakeForumTag("Showcase", "🌟"), FakeForumTag("Animation", "🎬")])
+    thread_show_scene = FakeThread(30004, "First completed scene!", 333, ch_show, [],
+                                   tags=[FakeForumTag("Showcase", "🌟"), FakeForumTag("Environment", "🏞️")])
+    thread_show_light = FakeThread(30005, "Lighting study collection", 333, ch_show, [],
+                                   tags=[FakeForumTag("Study", "📚"), FakeForumTag("Lighting", "💡")])
 
     # --- assets ---
     assets_msg1 = FakeMessage(1001,

@@ -100,6 +100,7 @@ class FakeThread:
         self.parent_id = parent_id
         self.parent = parent or FakeChannel(id=parent_id)
         self._history = history_messages or []
+        self.applied_tags = []
 
     def history(self, limit=None, oldest_first=True):
         """Async generator yielding fake messages."""

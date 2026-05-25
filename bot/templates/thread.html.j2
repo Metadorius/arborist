@@ -4,6 +4,13 @@
 {% block content %}
 <p class="breadcrumb"><a href="{{ root }}index.html">Home</a> / <a href="{{ root }}channels/{{ channel.id }}/index.html"># {{ channel.name }}</a> / <span class="muted">{{ thread.name }}</span></p>
 <h1>{{ thread.name }}</h1>
+{% if thread.tags %}
+  <div class="thread-tags">
+    {% for tag in thread.tags %}
+      {% include "tag.html.j2" %}
+    {% endfor %}
+  </div>
+{% endif %}
 <p class="muted">{{ channel.name }} — {{ messages|length }} message{% if messages|length != 1 %}s{% endif %}</p>
 <hr>
 {% for msg in messages %}

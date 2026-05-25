@@ -239,6 +239,26 @@ hr {
   margin: var(--sp-5) 0;
 }
 
+/* Tags (forum post tags) — same pill style as reactions */
+.thread-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  margin-bottom: var(--sp-3);
+}
+.tag {
+  padding: 0.15rem 0.55rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+.tag-emoji { font-size: 1rem; line-height: 1; }
+
 .muted { color: var(--text-muted); }
 
 .timestamp {
