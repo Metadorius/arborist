@@ -1,6 +1,7 @@
 """Shared fake data + helper for generating a fake archive site."""
 import asyncio
 import shutil
+import urllib.request
 from pathlib import Path
 from unittest.mock import patch
 
@@ -209,7 +210,18 @@ def build_fake_data():
         attachments=[FakeAttachment(9005, "procedural_demo.mp4", content_type="video/mp4")],
         reactions=[FakeReaction("😍", 15), FakeReaction("👍", 6)],
         created_at=_utc(2026, 5, 23, 20, 0))
-    thread_show._messages = [show_msg1]
+    show_msg2 = FakeMessage(3002,
+        "Here's a **gallery** of the latest renders from the project 🎨",
+        thread_show, charlie,
+        attachments=[
+            FakeAttachment(9301, "render_01.jpg", content_type="image/jpeg"),
+            FakeAttachment(9302, "render_02.jpg", content_type="image/jpeg"),
+            FakeAttachment(9303, "render_03.jpg", content_type="image/jpeg"),
+            FakeAttachment(9304, "render_04.jpg", content_type="image/jpeg"),
+        ],
+        reactions=[FakeReaction("🖼️", 8), FakeReaction("🔥", 5)],
+        created_at=_utc(2026, 5, 24, 9, 0))
+    thread_show._messages = [show_msg1, show_msg2]
 
     # --- extra threads (short, to showcase the sidebar tree) ---
     thread_assets_pbr._messages = [FakeMessage(1101,
@@ -275,6 +287,61 @@ def build_fake_data():
 # Generate a fake archive site
 # ---------------------------------------------------------------------------
 
+def _download_placeholder_images(output_dir: Path):
+    """Download random picsum images into the expected attachment directories.
+
+    Images are cached to ``tests/.cache/test-images/`` so they are only
+    downloaded once per picsum ID, then copied into place.
+
+    All placeholder images courtesy of `Lorem Picsum <https://picsum.photos>`_.
+    """
+    _cache = Path(__file__).resolve().parent / ".cache" / "test-images"
+    _cache.mkdir(parents=True, exist_ok=True)
+
+    # write attribution notice
+    _attribution = _cache / "ATTRIBUTION.txt"
+    if not _attribution.exists():
+        _attribution.write_text(
+            "These placeholder images come from Lorem Picsum (https://picsum.photos).\n"
+            "They are cached here to avoid re-downloading during test runs.\n",
+            encoding="utf-8",
+        )
+
+    # (channel_id, attachment_id, filename, picsum_id)
+    mappings = [
+        (111, 9001, "preview.png",        237),
+        (111, 9003, "render.webp",        42),
+        (111, 9102, "village_wip.png",    1015),
+        (222, 9004, "my_result.png",      180),
+        (333, 9005, "procedural_demo.mp4", None),  # skip video
+        (333, 9201, "dragon_head.png",    220),
+        (333, 9203, "first_scene.png",    250),
+        (333, 9204, "lighting_studies.png", 20),
+        (333, 9301, "render_01.jpg",      10),
+        (333, 9302, "render_02.jpg",      11),
+        (333, 9303, "render_03.jpg",      12),
+        (333, 9304, "render_04.jpg",      13),
+    ]
+    for ch_id, att_id, filename, pic_id in mappings:
+        if pic_id is None:
+            continue
+        dest_dir = output_dir / "attachments" / str(ch_id) / str(att_id)
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        dest = dest_dir / filename
+        if dest.exists():
+            continue
+
+        cached = _cache / f"{pic_id}.jpg"
+        if not cached.exists():
+            url = f"https://picsum.photos/id/{pic_id}/800/600"
+            try:
+                urllib.request.urlretrieve(url, str(cached))
+            except Exception:
+                continue  # offline — skip, dest won't exist
+
+        if cached.exists():
+            shutil.copy2(cached, str(dest))
+
 def generate_fake_site(output_dir: Path, copy_css: bool = True):
     """Run the archiver with fake data into output_dir."""
     import builtins
@@ -296,6 +363,8 @@ def generate_fake_site(output_dir: Path, copy_css: bool = True):
             asyncio.run(archiver.archive_all_from_ids(list(client._channels.keys())))
     finally:
         builtins.isinstance = orig
+
+    _download_placeholder_images(output_dir)
 
     if copy_css:
         css = Path(__file__).resolve().parent.parent / "site" / "styles.css"
