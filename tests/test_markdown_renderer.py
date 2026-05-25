@@ -33,6 +33,8 @@ class FakeEmbed:
         self.fields = fields or []
         self.image = image
         self.thumbnail = thumbnail
+        self.author = None
+        self.provider = None
 
 
 class FakeReaction:

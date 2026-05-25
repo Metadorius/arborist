@@ -72,6 +72,35 @@ class TestThreadPage:
         link = page.locator("a.tree-thread.active")
         assert link.is_visible()
 
+    def test_images_are_clickable(self, page, fake_site_url):
+        """Every <img> inside .attachments must be wrapped in an <a> with href."""
+        page.goto(f"{fake_site_url}/channels/333/30001/index.html")
+        imgs = page.locator(".attachments img")
+        assert imgs.count() >= 1
+        for i in range(imgs.count()):
+            parent_tag = imgs.nth(i).evaluate("el => el.parentElement.tagName")
+            assert parent_tag == "A", f"img {i} not wrapped in <a>"
+            href = imgs.nth(i).evaluate("el => el.parentElement.getAttribute('href')")
+            assert href, f"img {i} parent <a> missing href"
+            assert href.endswith((".png", ".jpg", ".jpeg", ".webp", ".gif")), \
+                f"img {i} href is not an image: {href}"
+
+    def test_gallery_has_multiple_images(self, page, fake_site_url):
+        """The procedural texture thread should have a multi-image gallery."""
+        page.goto(f"{fake_site_url}/channels/333/30001/index.html")
+        gallery_imgs = page.locator(".attachments img")
+        assert gallery_imgs.count() >= 4, f"expected >= 4 gallery images, got {gallery_imgs.count()}"
+
+    def test_embed_image_clickable(self, page, fake_site_url):
+        """.embed-image should be wrapped in an <a> linking to the image."""
+        page.goto(f"{fake_site_url}/channels/222/20001/index.html")
+        embed_img = page.locator(".embed-image")
+        assert embed_img.count() >= 1
+        parent_tag = embed_img.first.evaluate("el => el.parentElement.tagName")
+        assert parent_tag == "A", f"embed image not in <a>, got {parent_tag}"
+        href = embed_img.first.evaluate("el => el.parentElement.getAttribute('href')")
+        assert href, "embed image parent <a> missing href"
+
 
 @pytest.mark.playwright
 class TestSidebarResponsive:

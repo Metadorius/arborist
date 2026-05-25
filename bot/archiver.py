@@ -18,11 +18,22 @@ logger = logging.getLogger("arborist.archiver")
 _TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 
 
+def _format_size(size: int) -> str:
+    """Format a byte count to a human-readable string. e.g. 5.2 MB."""
+    for unit in ("B", "KB", "MB", "GB"):
+        if size < 1024:
+            return f"{size:.1f} {unit}" if unit != "B" else f"{size} B"
+        size /= 1024
+    return f"{size:.1f} TB"
+
+
 def _get_jinja_env() -> Environment:
-    return Environment(
+    env = Environment(
         loader=FileSystemLoader(str(_TEMPLATES_DIR)),
         autoescape=select_autoescape(),
     )
+    env.filters["filesize"] = _format_size
+    return env
 
 
 def _read_frontmatter(md_path: Path) -> dict:
@@ -205,6 +216,7 @@ class Archiver:
                     "filename": a.filename,
                     "url": f"../../../attachments/{thread.parent_id}/{a.id}/{a.filename}",
                     "is_image": is_image,
+                    "size": a.size,
                 })
 
             msg_data.append({
@@ -367,12 +379,22 @@ class Archiver:
     def _embeds_for_template(embeds: list[discord.Embed]) -> list[dict[str, Any]]:
         result = []
         for e in embeds:
+            color = None
+            if e.color and e.color.value is not None:
+                color = f"#{e.color.value:06x}"
             result.append({
                 "title": e.title,
                 "description": e.description,
                 "url": e.url,
-                "fields": [{"name": f.name, "value": f.value} for f in e.fields],
+                "color": color,
+                "author_name": e.author.name if e.author else None,
+                "author_url": e.author.url if e.author else None,
+                "author_icon": str(e.author.icon_url) if e.author and e.author.icon_url else None,
+                "provider_name": e.provider.name if e.provider else None,
+                "provider_url": e.provider.url if e.provider else None,
+                "fields": [{"name": f.name, "value": f.value, "inline": f.inline} for f in e.fields],
                 "image_url": str(e.image.url) if e.image and e.image.url else None,
+                "thumbnail_url": str(e.thumbnail.url) if e.thumbnail and e.thumbnail.url else None,
             })
         return result
 

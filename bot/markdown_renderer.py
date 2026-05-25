@@ -63,6 +63,11 @@ def render_message(
             "description": embed.description,
             "url": embed.url,
             "color": embed.color.value if embed.color else None,
+            "author_name": embed.author.name if embed.author else None,
+            "author_url": embed.author.url if embed.author else None,
+            "author_icon": str(embed.author.icon_url) if embed.author and embed.author.icon_url else None,
+            "provider_name": embed.provider.name if embed.provider else None,
+            "provider_url": embed.provider.url if embed.provider else None,
             "fields": [
                 {"name": f.name, "value": f.value, "inline": f.inline}
                 for f in embed.fields

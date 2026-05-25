@@ -39,15 +39,34 @@ class FakeField:
 
 class FakeEmbed:
     def __init__(self, title=None, description=None, url=None, color=None,
-                 fields=None, image=None, thumbnail=None):
+                 fields=None, image_url=None, thumbnail_url=None,
+                 author_name=None, author_url=None, author_icon=None,
+                 provider_name=None, provider_url=None):
         self.title = title
         self.description = description
         self.url = url
-        self.color = type("Color", (), {"value": 0x4ade80})() if color else type("Color", (), {"value": None})()
+        if isinstance(color, int):
+            self.color = type("Color", (), {"value": color})()
+        elif color:
+            self.color = type("Color", (), {"value": 0x4ade80})()
+        else:
+            self.color = type("Color", (), {"value": None})()
         self.fields = fields or []
-        class Img: url = "https://cdn.discordapp.com/embed/example.png"
-        self.image = Img() if image else None
-        self.thumbnail = Img() if thumbnail else None
+        class Img: pass
+        self.image = None
+        if image_url:
+            img = Img()
+            img.url = image_url
+            self.image = img
+        self.thumbnail = None
+        if thumbnail_url:
+            thumb = Img()
+            thumb.url = thumbnail_url
+            self.thumbnail = thumb
+        _a = lambda n,u,i: type("Author", (), {"name": n, "url": u, "icon_url": i})()
+        self.author = _a(author_name, author_url, author_icon) if author_name else None
+        _p = lambda n,u: type("Provider", (), {"name": n, "url": u})()
+        self.provider = _p(provider_name, provider_url) if provider_name else None
 
 
 class FakeReaction:
@@ -176,7 +195,8 @@ def build_fake_data():
         thread_assets, alice,
         embeds=[FakeEmbed(title="Cool Asset Pack v2 -- Preview",
                           description="Check out the new textures and models in this preview render.",
-                          color=True, image=True)],
+                          color=0x4ade80,
+                          image_url="https://picsum.photos/id/42/800/450")],
         attachments=[FakeAttachment(9003, "render.webp", content_type="image/webp")],
         reactions=[FakeReaction("⭐", 2)],
         created_at=_utc(2026, 5, 21, 15, 0))
@@ -191,9 +211,16 @@ def build_fake_data():
         "3. Use Shrinkwrap modifier\n4. Relax the result\n```\n\n"
         "||spoiler: the answer is always edge loops||",
         thread_tuts, bob,
-        embeds=[FakeEmbed(title="Video Tutorial",
+        embeds=[FakeEmbed(title="Blender Basics — Intermediate Guide",
                           description="Watch the full guide on YouTube",
-                          url="https://youtube.com/watch?v=example", color=True)],
+                          url="https://youtube.com/watch?v=example",
+                          color=0xFF0000,
+                          author_name="Blender Guru",
+                          author_url="https://youtube.com/@blenderguru",
+                          author_icon="https://picsum.photos/id/64/48/48",
+                          provider_name="YouTube",
+                          provider_url="https://youtube.com",
+                          image_url="https://picsum.photos/id/30/800/450")],
         reactions=[FakeReaction("📚", 7), FakeReaction("💡", 4)],
         created_at=_utc(2026, 5, 18, 10, 0))
     tut_msg2 = FakeMessage(2002,

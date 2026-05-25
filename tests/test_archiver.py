@@ -39,14 +39,30 @@ class FakeAttachment:
 
 
 class FakeEmbed:
-    def __init__(self, title=None, description=None, url=None, color=None, fields=None, image=None, thumbnail=None):
+    def __init__(self, title=None, description=None, url=None, color=None, fields=None, image_url=None, thumbnail_url=None,
+                 author_name=None, author_url=None, author_icon=None,
+                 provider_name=None, provider_url=None):
         self.title = title
         self.description = description
         self.url = url
-        self.color = type("Color", (), {"value": 123})() if color else None
+        if isinstance(color, int):
+            self.color = type("Color", (), {"value": color})()
+        elif color:
+            self.color = type("Color", (), {"value": 123})()
+        else:
+            self.color = None
         self.fields = fields or []
-        self.image = type("Img", (), {"url": "https://example.com/img.png"})() if image else None
-        self.thumbnail = type("Thumb", (), {"url": "https://example.com/thumb.png"})() if thumbnail else None
+        class Img: pass
+        self.image = None
+        if image_url:
+            img = Img()
+            img.url = image_url
+            self.image = img
+        self.thumbnail = None
+        _a = lambda n,u,i: type("Author", (), {"name": n, "url": u, "icon_url": i})()
+        self.author = _a(author_name, author_url, author_icon) if author_name else None
+        _p = lambda n,u: type("Provider", (), {"name": n, "url": u})()
+        self.provider = _p(provider_name, provider_url) if provider_name else None
 
 
 class FakeReaction:

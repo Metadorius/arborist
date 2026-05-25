@@ -1,0 +1,31 @@
+<div class="embed"{% if embed.color %} style="border-left-color: {{ embed.color }}"{% endif %}>
+  {% if embed.author_name %}
+    <div class="embed-author">
+      {% if embed.author_icon %}<img class="embed-author-icon" src="{{ embed.author_icon }}" alt="" loading="lazy">{% endif %}
+      {% if embed.author_url %}<a href="{{ embed.author_url }}" target="_blank" rel="noopener">{{ embed.author_name }}</a>
+      {% else %}<span>{{ embed.author_name }}</span>{% endif %}
+    </div>
+  {% endif %}
+  {% if embed.title %}
+    {% if embed.url %}<a href="{{ embed.url }}" class="embed-title" target="_blank" rel="noopener">{{ embed.title }}</a>
+    {% else %}<strong class="embed-title">{{ embed.title }}</strong>{% endif %}
+  {% endif %}
+  {% if embed.description %}<p class="embed-desc">{{ embed.description }}</p>{% endif %}
+  {% if embed.fields %}
+    <div class="embed-fields">
+      {% for f in embed.fields %}
+        <div class="embed-field{% if f.inline %} embed-field-inline{% endif %}">
+          <strong>{{ f.name }}</strong>
+          <p>{{ f.value }}</p>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+  {% if embed.image_url %}<a href="{{ embed.image_url }}" target="_blank"><img class="embed-image" src="{{ embed.image_url }}" alt="{{ embed.title or 'embed image' }}" loading="lazy"></a>{% endif %}
+  {% if embed.provider_name %}
+    <div class="embed-provider">
+      {% if embed.provider_url %}<a href="{{ embed.provider_url }}" target="_blank" rel="noopener">{{ embed.provider_name }}</a>
+      {% else %}<span>{{ embed.provider_name }}</span>{% endif %}
+    </div>
+  {% endif %}
+</div>

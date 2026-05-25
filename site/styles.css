@@ -386,11 +386,55 @@ hr {
   margin-top: var(--sp-2);
   border-radius: 0 var(--radius) var(--radius) 0;
   font-size: var(--fs-sm);
+  max-width: 520px;
 }
-.embed strong {
+.embed-title {
   display: block;
   margin-bottom: var(--sp-1);
+  font-weight: var(--fw-semibold);
   color: var(--accent);
+  font-size: var(--fs-base);
+}
+a.embed-title:hover { color: var(--accent-hover); text-decoration: underline; }
+
+.embed-author {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+}
+.embed-author-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+}
+
+.embed-provider {
+  margin-top: var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.embed-desc { margin: 0 0 var(--sp-2); }
+.embed-desc:last-child { margin-bottom: 0; }
+
+.embed-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin: var(--sp-2) 0;
+}
+.embed-field { flex: 1 1 100%; }
+.embed-field-inline { flex: 1 1 calc(50% - var(--sp-2)); }
+.embed-field strong { display: block; margin-bottom: var(--sp-1); color: var(--text); }
+.embed-field p { margin: 0; }
+
+.embed-image {
+  max-width: 100%;
+  border-radius: var(--radius-sm);
+  margin-top: var(--sp-2);
 }
 
 /* ============================================================
@@ -401,10 +445,11 @@ hr {
   margin-top: var(--sp-2);
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: var(--sp-2);
 }
 .attachments img {
-  max-width: 100%;
+  max-width: 400px;
   max-height: 350px;
   border-radius: var(--radius);
   border: 1px solid var(--border);
@@ -412,9 +457,18 @@ hr {
 }
 .attachments img:hover { border-color: var(--accent-dim); }
 
+.attachment-meta {
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  margin-top: var(--sp-1);
+}
+
 .attachment-link {
-  display: inline-block;
-  padding: var(--sp-1) var(--sp-3);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -422,6 +476,25 @@ hr {
   transition: border-color 0.15s;
 }
 .attachment-link:hover { border-color: var(--accent-dim); text-decoration: none; }
+
+.attachment-link-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.attachment-link-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.attachment-link-name {
+  color: var(--text);
+  font-weight: var(--fw-medium);
+}
+.attachment-link-size {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
 
 /* ============================================================
    12. Reactions

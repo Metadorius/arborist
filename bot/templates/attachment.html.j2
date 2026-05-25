@@ -1,0 +1,12 @@
+{% if att.is_image %}
+  <a href="{{ att.url }}" target="_blank"><img src="{{ att.url }}" alt="{{ att.filename }}" loading="lazy"></a>
+  <span class="attachment-meta">{{ att.filename }} — {{ att.size | filesize }}</span>
+{% else %}
+  <a href="{{ att.url }}" class="attachment-link">
+    <span class="attachment-link-icon">📎</span>
+    <span class="attachment-link-text">
+      <span class="attachment-link-name">{{ att.filename }}</span>
+      <span class="attachment-link-size">{{ att.size | filesize }}</span>
+    </span>
+  </a>
+{% endif %}
