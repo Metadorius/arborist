@@ -1,7 +1,7 @@
 <article class="message" id="msg-{{ msg.id }}">
   <header class="message-header">
     <strong class="message-author">{{ msg.author }}</strong>
-    <time class="timestamp" datetime="{{ msg.timestamp }}">{{ msg.timestamp }}</time>
+    <time class="timestamp" datetime="{{ msg.timestamp }}" data-format="datetime">{{ msg.timestamp[:10] }} {{ msg.timestamp[11:16] }}</time>
     {% if msg.edited %}<span class="edited">(edited)</span>{% endif %}
   </header>
   <div class="message-content">

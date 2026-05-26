@@ -23,7 +23,7 @@
     <div class="card-body">
       <div class="card-meta">
         {% if th.author %}<span class="card-author">{{ th.author }}</span>{% endif %}
-        {% if th.timestamp %}<span class="card-date">{{ th.timestamp[:10] }}</span>{% endif %}
+        {% if th.timestamp %}<time class="card-date" datetime="{{ th.timestamp }}" data-format="date">{{ th.timestamp[:10] }}</time>{% endif %}
       </div>
       <h3>{{ th.name }}</h3>
       <p class="muted">{{ th.message_count }} message{% if th.message_count != 1 %}s{% endif %}</p>

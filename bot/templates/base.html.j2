@@ -80,6 +80,18 @@
       setSidebar(false);
     }
   });
+
+  /* localize all <time> elements to user's timezone */
+  document.querySelectorAll('time[datetime]').forEach(function(el) {
+    var d = new Date(el.getAttribute('datetime'));
+    if (isNaN(d.getTime())) return;
+    var fmt = el.getAttribute('data-format');
+    if (fmt === 'date') {
+      el.textContent = d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    } else {
+      el.textContent = d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+  });
 })();
 </script>
 </body>
