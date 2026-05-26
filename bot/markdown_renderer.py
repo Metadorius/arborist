@@ -1,32 +1,34 @@
 """Convert Discord messages to markdown with YAML frontmatter."""
 
 import datetime
-import json
 from pathlib import Path
 from typing import Any
 
 import discord
+import yaml
 from jinja2 import Environment, FileSystemLoader
 
 _TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 
 
-def _yaml_str(value: Any) -> str:
-    """Quote a value safely for YAML scalar context (JSON is YAML-compatible)."""
-    if value is None:
-        return "null"
-    return json.dumps(value, ensure_ascii=False)
+def parse_frontmatter(text: str) -> dict:
+    """Parse YAML frontmatter from a markdown string. Returns {} if absent or invalid."""
+    if not text.startswith("---"):
+        return {}
+    try:
+        _, fm_block, _ = text.split("---", 2)
+    except ValueError:
+        return {}
+    try:
+        data = yaml.safe_load(fm_block)
+    except yaml.YAMLError:
+        return {}
+    return data if isinstance(data, dict) else {}
 
-
-_tmpl_env: Environment = Environment(
+_body_env: Environment = Environment(
     loader=FileSystemLoader(str(_TEMPLATES_DIR)),
     autoescape=False,
 )
-_tmpl_env.filters["yaml_str"] = _yaml_str
-
-
-def _get_env() -> Environment:
-    return _tmpl_env
 
 
 def _format_timestamp(dt: datetime.datetime | None) -> str | None:
@@ -47,15 +49,24 @@ def _attachment_info(att: discord.Attachment, base_url: str = "") -> dict[str, A
     }
 
 
+def _dump_frontmatter(data: dict) -> str:
+    """Serialize a dict as YAML, dropping None values and empty lists."""
+    cleaned = {}
+    for k, v in data.items():
+        if v is None:
+            continue
+        if isinstance(v, list) and len(v) == 0:
+            continue
+        cleaned[k] = v
+    return yaml.dump(cleaned, sort_keys=False, allow_unicode=True, default_flow_style=False)
+
+
 def render_message(
     message: discord.Message,
     channel_name: str = "",
     thread_name: str = "",
 ) -> str:
     """Render a single Discord message as markdown with YAML frontmatter."""
-    env = _get_env()
-    tmpl = env.get_template("message.md.j2")
-
     embeds = []
     for embed in message.embeds:
         e: dict[str, Any] = {
@@ -79,7 +90,8 @@ def render_message(
 
     attachments = [_attachment_info(a) for a in message.attachments]
 
-    ctx = {
+    # Build frontmatter — only non-None / non-empty values
+    frontmatter: dict[str, Any] = {
         "message_id": str(message.id),
         "channel_id": str(message.channel.id),
         "channel_name": channel_name,
@@ -90,20 +102,25 @@ def render_message(
         "author_avatar": str(message.author.display_avatar.url) if message.author.display_avatar else None,
         "timestamp": _format_timestamp(message.created_at),
         "edited": _format_timestamp(message.edited_at) if message.edited_at else None,
-        "content": message.content,
-        "embeds": embeds,
+        "pinned": message.pinned,
+        "jump_url": message.jump_url,
         "attachments": attachments,
         "reactions": [
             {"emoji": str(r.emoji), "count": r.count}
             for r in message.reactions
         ],
-        "pinned": message.pinned,
-        "jump_url": message.jump_url,
     }
 
-    # Set thread info from the message's thread
     if isinstance(message.channel, discord.Thread):
-        ctx["thread_id"] = str(message.channel.id)
-        ctx["thread_name"] = thread_name or message.channel.name
+        frontmatter["thread_id"] = str(message.channel.id)
+        frontmatter["thread_name"] = thread_name or message.channel.name
 
-    return tmpl.render(**ctx)
+    # Render body (content + embeds + attachment links)
+    body_tmpl = _body_env.get_template("message_body.md.j2")
+    body = body_tmpl.render(
+        content=message.content,
+        embeds=embeds,
+        attachments=attachments,
+    ).rstrip("\n") + "\n"
+
+    return f"---\n{_dump_frontmatter(frontmatter)}---\n{body}"

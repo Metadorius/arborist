@@ -1,0 +1,22 @@
+{% if content -%}
+{{ content }}
+
+{% endif -%}
+{%- for embed in embeds -%}
+> **Embed{% if embed.title %}: {{ embed.title }}{% endif %}**
+{%- if embed.description %}
+> {{ embed.description | replace('\n', '\n> ') }}
+{% endif -%}
+{%- for field in embed.fields -%}
+> **{{ field.name }}**: {{ field.value }}
+{% endfor -%}
+
+{% endfor -%}
+{%- for att in attachments -%}
+{%- if att.is_image -%}
+![{{ att.filename }}]({{ att.url }})
+{%- else -%}
+[{{ att.filename }}]({{ att.url }})
+{%- endif -%}
+
+{% endfor -%}

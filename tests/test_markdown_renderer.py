@@ -1,6 +1,6 @@
 """Tests for Discord message → markdown rendering."""
 
-from bot.markdown_renderer import render_message
+from bot.markdown_renderer import parse_frontmatter, render_message
 
 
 class FakeAuthor:
@@ -87,57 +87,70 @@ class TestRenderMessage:
     def test_basic_content(self):
         msg = FakeMessage(content="Hello world")
         result = render_message(msg, channel_name="assets", thread_name="cool-pack")
-        assert "Hello world" in result
-        assert 'message_id: "111"' in result
-        assert 'channel_name: "assets"' in result
-        assert 'thread_name: "cool-pack"' in result
-        assert 'author: "TestUser"' in result
+        fm = parse_frontmatter(result)
+        body = result.split("---", 2)[2].lstrip("\n")
+        assert body == "Hello world\n"
+        assert fm["message_id"] == "111"
+        assert fm["channel_name"] == "assets"
+        assert fm["thread_name"] == "cool-pack"
+        assert fm["author"] == "TestUser"
 
     def test_yaml_frontmatter(self):
         msg = FakeMessage(id=42, content="Test")
         result = render_message(msg, channel_name="ch", thread_name="th")
-        assert result.startswith("---")
-        assert "---" in result[3:]
-        assert 'message_id: "42"' in result
+        fm = parse_frontmatter(result)
+        body = result.split("---", 2)[2].lstrip("\n")
+        assert fm["message_id"] == "42"
+        assert body == "Test\n"
 
     def test_with_attachments(self):
         att = FakeAttachment(id=77, filename="doc.pdf", size=2048, content_type="application/pdf")
         msg = FakeMessage(content="See attached", attachments=[att])
         result = render_message(msg)
-        assert "doc.pdf" in result
-        assert 'id: "77"' in result
-        assert "size: 2048" in result
+        fm = parse_frontmatter(result)
+        body = result.split("---", 2)[2].lstrip("\n")
+        assert body == "See attached\n\n[doc.pdf](/attachments/77/doc.pdf)\n"
+        assert fm["attachments"][0]["id"] == "77"
+        assert fm["attachments"][0]["size"] == 2048
 
     def test_with_image_attachment(self):
         att = FakeAttachment(id=88, filename="pic.png", content_type="image/png")
         msg = FakeMessage(content="Look", attachments=[att])
         result = render_message(msg)
-        assert "pic.png" in result
-        assert "is_image: true" in result
+        fm = parse_frontmatter(result)
+        body = result.split("---", 2)[2].lstrip("\n")
+        assert fm["attachments"][0]["is_image"] is True
+        assert body == "Look\n\n![pic.png](/attachments/88/pic.png)\n"
 
     def test_with_embeds(self):
         embed = FakeEmbed(title="Embed Title", description="Embed description")
         msg = FakeMessage(content="Check embed", embeds=[embed])
         result = render_message(msg)
-        assert "Embed Title" in result
-        assert "Embed description" in result
+        body = result.split("---", 2)[2].lstrip("\n")
+        assert "Embed Title" in body
+        assert "Embed description" in body
 
     def test_with_reactions(self):
         r1 = FakeReaction(emoji="👍", count=3)
         r2 = FakeReaction(emoji="❤️", count=1)
         msg = FakeMessage(content="Nice", reactions=[r1, r2])
         result = render_message(msg)
-        assert "👍" in result
-        assert "3" in result
-        assert "❤️" in result
+        fm = parse_frontmatter(result)
+        assert fm["reactions"][0]["emoji"] == "👍"
+        assert fm["reactions"][0]["count"] == 3
+        assert fm["reactions"][1]["emoji"] == "❤️"
 
     def test_empty_content(self):
         msg = FakeMessage(content="")
         result = render_message(msg)
-        assert "message_id:" in result
+        fm = parse_frontmatter(result)
+        body = result.split("---", 2)[2]
+        assert fm["message_id"] is not None
+        assert body in ("\n", "\n\n")
 
     def test_channel_and_thread_in_frontmatter(self):
         msg = FakeMessage()
         result = render_message(msg, channel_name="assets", thread_name="cool-pack")
-        assert 'channel_name: "assets"' in result
-        assert 'thread_name: "cool-pack"' in result
+        fm = parse_frontmatter(result)
+        assert fm["channel_name"] == "assets"
+        assert fm["thread_name"] == "cool-pack"

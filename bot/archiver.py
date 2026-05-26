@@ -52,25 +52,8 @@ def _read_frontmatter(md_path: Path) -> dict:
         text = md_path.read_text(encoding="utf-8")
     except OSError:
         return {}
-    if not text.startswith("---"):
-        return {}
-    # Find the closing `---` on its own line.
-    lines = text.splitlines()
-    if not lines or lines[0].strip() != "---":
-        return {}
-    end = None
-    for i in range(1, len(lines)):
-        if lines[i].strip() == "---":
-            end = i
-            break
-    if end is None:
-        return {}
-    block = "\n".join(lines[1:end])
-    try:
-        data = yaml.safe_load(block)
-    except yaml.YAMLError:
-        return {}
-    return data if isinstance(data, dict) else {}
+    from .markdown_renderer import parse_frontmatter
+    return parse_frontmatter(text)
 
 
 class Archiver:

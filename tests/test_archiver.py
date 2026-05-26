@@ -184,7 +184,9 @@ class TestArchiver:
         # Check markdown content
         md_content = (thread_dir / "10.md").read_text()
         assert "First post!" in md_content
-        assert 'message_id: "10"' in md_content
+        from bot.markdown_renderer import parse_frontmatter
+        fm = parse_frontmatter(md_content)
+        assert fm["message_id"] == "10"
 
         # Check HTML contains the message
         html = (thread_dir / "index.html").read_text()
