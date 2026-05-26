@@ -25,25 +25,25 @@ reactions:
 {% endfor %}
 ---
 
-{% if content %}
+{% if content -%}
 {{ content }}
-{% endif %}
 
-{% for embed in embeds %}
+{% endif -%}
+{%- for embed in embeds -%}
 > **Embed{% if embed.title %}: {{ embed.title }}{% endif %}**
-{% if embed.description %}
+{%- if embed.description %}
 > {{ embed.description | replace('\n', '\n> ') }}
-{% endif %}
-{% for field in embed.fields %}
+{% endif -%}
+{%- for field in embed.fields -%}
 > **{{ field.name }}**: {{ field.value }}
-{% endfor %}
-{% endfor %}
+{% endfor -%}
 
-{# Attachment links #}
-{% for att in attachments %}
-{% if att.is_image %}
+{% endfor -%}
+{%- for att in attachments -%}
+{%- if att.is_image -%}
 ![{{ att.filename }}]({{ att.url }})
-{% else %}
+{%- else -%}
 [{{ att.filename }}]({{ att.url }})
-{% endif %}
-{% endfor %}
+{%- endif -%}
+
+{% endfor -%}
