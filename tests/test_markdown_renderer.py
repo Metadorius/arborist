@@ -109,9 +109,10 @@ class TestRenderMessage:
         result = render_message(msg)
         fm = parse_frontmatter(result)
         body = result.split("---", 2)[2].lstrip("\n")
-        assert body == "See attached\n\n[doc.pdf](/attachments/77/doc.pdf)\n"
+        assert body == "See attached\n"
         assert fm["attachments"][0]["id"] == "77"
         assert fm["attachments"][0]["size"] == 2048
+        assert fm["attachments"][0]["filename"] == "doc.pdf"
 
     def test_with_image_attachment(self):
         att = FakeAttachment(id=88, filename="pic.png", content_type="image/png")
@@ -120,15 +121,17 @@ class TestRenderMessage:
         fm = parse_frontmatter(result)
         body = result.split("---", 2)[2].lstrip("\n")
         assert fm["attachments"][0]["is_image"] is True
-        assert body == "Look\n\n![pic.png](/attachments/88/pic.png)\n"
+        assert body == "Look\n"
 
     def test_with_embeds(self):
         embed = FakeEmbed(title="Embed Title", description="Embed description")
         msg = FakeMessage(content="Check embed", embeds=[embed])
         result = render_message(msg)
+        fm = parse_frontmatter(result)
         body = result.split("---", 2)[2].lstrip("\n")
-        assert "Embed Title" in body
-        assert "Embed description" in body
+        assert body == "Check embed\n"
+        assert fm["embeds"][0]["title"] == "Embed Title"
+        assert fm["embeds"][0]["description"] == "Embed description"
 
     def test_with_reactions(self):
         r1 = FakeReaction(emoji="👍", count=3)

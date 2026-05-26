@@ -141,7 +141,7 @@ class ArboristClient(discord.Client):
         # when the cache was cold, so guard on the last id to avoid dupes).
         if not messages or messages[-1].id != message.id:
             messages.append(message)
-        self._archiver.rebuild_thread_index(thread, messages)
+        self._archiver.rebuild_thread_index(thread)
 
     async def on_message_edit(self, before: discord.Message, after: discord.Message) -> None:
         thread = after.channel if isinstance(after.channel, discord.Thread) else None
@@ -160,7 +160,7 @@ class ArboristClient(discord.Client):
             if m.id == after.id:
                 messages[i] = after
                 break
-        self._archiver.rebuild_thread_index(thread, messages)
+        self._archiver.rebuild_thread_index(thread)
 
     async def on_message_delete(self, message: discord.Message) -> None:
         channel = message.channel
@@ -177,7 +177,7 @@ class ArboristClient(discord.Client):
         cached = self._thread_msgs.get(channel.id)
         if cached is not None:
             self._thread_msgs[channel.id] = [m for m in cached if m.id != message.id]
-            self._archiver.rebuild_thread_index(channel, self._thread_msgs[channel.id])
+            self._archiver.rebuild_thread_index(channel)
 
     async def on_thread_update(self, before: discord.Thread, after: discord.Thread) -> None:
         if not self._is_watched(after.parent_id):
@@ -185,7 +185,7 @@ class ArboristClient(discord.Client):
         if before.name != after.name:
             logger.info("Thread renamed: %s -> %s", before.name, after.name)
             messages = await self._get_thread_messages(after)
-            self._archiver.rebuild_thread_index(after, messages)
+            self._archiver.rebuild_thread_index(after)
 
 
 # ------------------------------------------------------------------

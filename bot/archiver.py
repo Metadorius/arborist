@@ -165,7 +165,7 @@ class Archiver:
         for msg in messages:
             await self.archive_message(msg, thread_dir, session, channel_name, thread.name)
 
-        self._write_thread_index(thread, messages, tree)
+        self._write_thread_index(thread, tree)
         logger.info("  Finished thread: %s", thread.name)
 
     # ------------------------------------------------------------------
@@ -200,15 +200,17 @@ class Archiver:
         return tree if tree is not None else self._build_tree()
 
     def rebuild_thread_index(
-        self, thread: discord.Thread, messages: list[discord.Message], tree: list | None = None
+        self, thread: discord.Thread, tree: list | None = None
     ) -> None:
-        """Public alias for re-rendering a thread page from an in-memory message list."""
-        self._write_thread_index(thread, messages, tree)
+        """Re-render a thread's HTML page from .md files on disk."""
+        self._write_thread_index(thread, tree)
 
     def _write_thread_index(
-        self, thread: discord.Thread, messages: list[discord.Message], tree: list | None = None
+        self, thread: discord.Thread, tree: list | None = None
     ) -> None:
-        """Generate the thread page (index.html) with all messages."""
+        """Generate the thread page (index.html) from .md files on disk."""
+        from .markdown_renderer import parse_frontmatter
+
         channel = thread.parent
         if channel is None:
             channel_name = str(thread.parent_id)
@@ -217,28 +219,39 @@ class Archiver:
         else:
             channel_name = str(channel.id)
 
+        guild_id = self._guild_id(thread)
+        thread_dir = self._channels_dir / guild_id / str(thread.parent_id) / str(thread.id)
+        thread_dir.mkdir(parents=True, exist_ok=True)
+
         msg_data = []
-        for m in messages:
+        for md_path in sorted(thread_dir.glob("*.md")):
+            text = md_path.read_text(encoding="utf-8")
+            fm = parse_frontmatter(text)
+            # Extract markdown body (everything after second ---)
+            try:
+                body = text.split("---", 2)[2].lstrip("\n")
+            except IndexError:
+                body = ""
+
             attachments = []
-            for a in m.attachments:
-                is_image = a.content_type is not None and a.content_type.startswith("image/")
+            for att in fm.get("attachments") or []:
                 attachments.append({
-                    "filename": a.filename,
+                    "filename": att["filename"],
                     "channel_id": str(thread.parent_id),
-                    "id": str(a.id),
-                    "is_image": is_image,
-                    "size": a.size,
+                    "id": str(att["id"]),
+                    "is_image": att.get("is_image", False),
+                    "size": att.get("size", 0),
                 })
 
             msg_data.append({
-                "id": str(m.id),
-                "author": str(m.author),
-                "timestamp": m.created_at.isoformat(),
-                "edited": m.edited_at.isoformat() if m.edited_at else None,
-                "content": self._markdown_convert(m.content or ""),
-                "embeds": self._embeds_for_template(m.embeds),
+                "id": fm.get("message_id", md_path.stem),
+                "author": fm.get("author", ""),
+                "timestamp": fm.get("timestamp", ""),
+                "edited": fm.get("edited"),
+                "content": self._markdown_convert(body),
+                "embeds": self._embeds_from_frontmatter(fm.get("embeds") or []),
                 "attachments": attachments,
-                "reactions": [{"emoji": str(r.emoji), "count": r.count} for r in m.reactions],
+                "reactions": fm.get("reactions") or [],
             })
 
         tmpl = self._env.get_template("thread.html.j2")
@@ -423,26 +436,14 @@ class Archiver:
         return tree
 
     @staticmethod
-    def _embeds_for_template(embeds: list[discord.Embed]) -> list[dict[str, Any]]:
+    def _embeds_from_frontmatter(embeds: list[dict]) -> list[dict]:
+        """Convert embed data from frontmatter to template-ready format."""
         result = []
         for e in embeds:
-            color = None
-            if e.color and e.color.value is not None:
-                color = f"#{e.color.value:06x}"
-            result.append({
-                "title": e.title,
-                "description": e.description,
-                "url": e.url,
-                "color": color,
-                "author_name": e.author.name if e.author else None,
-                "author_url": e.author.url if e.author else None,
-                "author_icon": str(e.author.icon_url) if e.author and e.author.icon_url else None,
-                "provider_name": e.provider.name if e.provider else None,
-                "provider_url": e.provider.url if e.provider else None,
-                "fields": [{"name": f.name, "value": f.value, "inline": f.inline} for f in e.fields],
-                "image_url": str(e.image.url) if e.image and e.image.url else None,
-                "thumbnail_url": str(e.thumbnail.url) if e.thumbnail and e.thumbnail.url else None,
-            })
+            color = e.get("color")
+            if isinstance(color, int):
+                color = f"#{color:06x}"
+            result.append({**e, "color": color})
         return result
 
     def _build_tree(self) -> list[dict]:

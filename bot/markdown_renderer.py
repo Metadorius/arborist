@@ -1,14 +1,10 @@
 """Convert Discord messages to markdown with YAML frontmatter."""
 
 import datetime
-from pathlib import Path
 from typing import Any
 
 import discord
 import yaml
-from jinja2 import Environment, FileSystemLoader
-
-_TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 
 
 def parse_frontmatter(text: str) -> dict:
@@ -24,11 +20,6 @@ def parse_frontmatter(text: str) -> dict:
     except yaml.YAMLError:
         return {}
     return data if isinstance(data, dict) else {}
-
-_body_env: Environment = Environment(
-    loader=FileSystemLoader(str(_TEMPLATES_DIR)),
-    autoescape=False,
-)
 
 
 def _format_timestamp(dt: datetime.datetime | None) -> str | None:
@@ -109,18 +100,16 @@ def render_message(
             {"emoji": str(r.emoji), "count": r.count}
             for r in message.reactions
         ],
+        "embeds": embeds,
     }
 
     if isinstance(message.channel, discord.Thread):
         frontmatter["thread_id"] = str(message.channel.id)
         frontmatter["thread_name"] = thread_name or message.channel.name
 
-    # Render body (content + embeds + attachment links)
-    body_tmpl = _body_env.get_template("message_body.md.j2")
-    body = body_tmpl.render(
-        content=message.content,
-        embeds=embeds,
-        attachments=attachments,
-    ).rstrip("\n") + "\n"
+    # Body is the raw message content
+    body = (message.content or "").strip("\n")
+    if body:
+        body += "\n"
 
     return f"---\n{_dump_frontmatter(frontmatter)}---\n{body}"
