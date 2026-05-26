@@ -415,6 +415,8 @@ def generate_fake_site(output_dir: Path, copy_css: bool = True):
     _download_placeholder_images(output_dir)
 
     if copy_css:
-        css = Path(__file__).resolve().parent.parent / "site" / "styles.css"
-        if css.exists():
-            shutil.copy2(css, output_dir / "styles.css")
+        site_dir = Path(__file__).resolve().parent.parent / "site"
+        for name in ("styles.css", "pygments.css"):
+            css = site_dir / name
+            if css.exists():
+                shutil.copy2(css, output_dir / name)

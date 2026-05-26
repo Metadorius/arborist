@@ -465,6 +465,9 @@ hr {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  padding: var(--sp-3) var(--sp-4);
+  margin: var(--sp-2) 0;
+  overflow-x: auto;
 }
 .highlight pre {
   background: none;
