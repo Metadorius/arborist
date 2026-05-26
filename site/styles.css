@@ -390,6 +390,12 @@ hr {
    8. Messages
    ============================================================ */
 
+/* Thread content column — centered, limited width for readability */
+.thread-content {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
 .message {
   padding: var(--sp-4) 0;
   border-bottom: 1px solid var(--border);
@@ -541,22 +547,27 @@ a.embed-title:hover { color: var(--accent-hover); text-decoration: underline; }
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--sp-2);
+  gap: var(--sp-3);
 }
-.attachments img {
+
+.attachment-image {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-1);
+}
+.attachment-image img {
   max-width: 400px;
   max-height: 350px;
   border-radius: var(--radius);
   border: 1px solid var(--border);
   transition: border-color 0.15s;
 }
-.attachments img:hover { border-color: var(--accent-dim); }
+.attachment-image img:hover { border-color: var(--accent-dim); }
 
 .attachment-meta {
-  display: block;
   font-size: var(--fs-xs);
   color: var(--text-muted);
-  margin-top: var(--sp-1);
 }
 
 .attachment-link {
