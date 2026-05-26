@@ -181,8 +181,8 @@ a:hover { color: var(--accent-hover); }
   color: var(--text);
   transition: color 0.15s;
 }
-.tree-channel-link:hover,
 .tree-channel-link.active { color: var(--accent); text-decoration: none; }
+.tree-channel-link:hover { color: var(--accent-hover); text-decoration: none; }
 
 .tree-channel > .tree-thread {
   position: relative;
@@ -209,8 +209,8 @@ a:hover { color: var(--accent-hover); }
   width: 1px; height: 50%;
   background: var(--border);
 }
-.tree-thread:hover,
 .tree-thread.active { color: var(--accent); text-decoration: none; }
+.tree-thread:hover { color: var(--accent-hover); text-decoration: none; }
 
 /* ============================================================
    6. Headings + utilities
