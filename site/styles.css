@@ -292,14 +292,89 @@ hr {
 }
 
 .card {
-  display: block;
-  padding: var(--sp-4);
+  display: flex;
+  flex-direction: column;
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  overflow: hidden;
   transition: border-color 0.15s, color 0.15s;
 }
 .card:hover { border-color: var(--accent-dim); text-decoration: none; }
+
+/* Gallery preview box */
+.card-gallery {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: var(--bg-elevated);
+  overflow: hidden;
+}
+.card-gallery img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+.card:hover .card-gallery img { transform: scale(1.04); }
+
+/* Tags overlaid on bottom-left of gallery */
+.card-tags {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: var(--sp-2);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+.card-tag {
+  padding: 0.12rem 0.45rem;
+  background: rgba(14, 16, 15, 0.85);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card-tag .tag-emoji { font-size: 0.85rem; line-height: 1; }
+
+/* Card body (below gallery) */
+.card-body {
+  padding: var(--sp-3) var(--sp-4) var(--sp-4);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Author + date row above title */
+.card-meta {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-1);
+}
+.card-author {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--accent);
+}
+.card-date {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .card h2,
 .card h3 {
   font-size: var(--fs-md);

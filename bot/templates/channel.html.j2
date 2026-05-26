@@ -8,9 +8,26 @@
 <div class="channel-grid">
 {% for th in threads %}
   <a class="card" href="{{ th.folder }}/index.html">
-    <h3>{{ th.name }}</h3>
-    <p class="muted">{{ th.message_count }} message{% if th.message_count != 1 %}s{% endif %}</p>
-    <p class="timestamp">{{ th.updated }}</p>
+    {% if th.first_image %}
+    <div class="card-gallery">
+      <img src="{{ root }}attachments/{{ th.first_image.channel_id }}/{{ th.first_image.id }}/{{ th.first_image.filename }}" alt="" loading="lazy">
+      {% if th.tags %}
+      <div class="card-tags">
+        {% for tag in th.tags %}
+        <span class="card-tag">{% if tag.emoji %}<span class="tag-emoji">{{ tag.emoji }}</span>{% endif %}{{ tag.name }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+    <div class="card-body">
+      <div class="card-meta">
+        {% if th.author %}<span class="card-author">{{ th.author }}</span>{% endif %}
+        {% if th.timestamp %}<span class="card-date">{{ th.timestamp[:10] }}</span>{% endif %}
+      </div>
+      <h3>{{ th.name }}</h3>
+      <p class="muted">{{ th.message_count }} message{% if th.message_count != 1 %}s{% endif %}</p>
+    </div>
   </a>
 {% endfor %}
 </div>

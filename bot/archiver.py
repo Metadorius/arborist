@@ -276,11 +276,19 @@ class Archiver:
         )
         index_path.write_text(html, encoding="utf-8")
 
-    def _write_channel_index(self, channel: discord.ForumChannel, tree: list | None = None) -> None:
+    def _write_channel_index(
+        self, channel: discord.ForumChannel, tree: list | None = None,
+        all_threads: list[discord.Thread] | None = None,
+    ) -> None:
         """Generate the channel page (index.html) listing its threads."""
         guild_id = self._channel_guild_id(channel)
         ch_dir = self._channels_dir / guild_id / str(channel.id)
         ch_dir.mkdir(parents=True, exist_ok=True)
+
+        # Build a lookup for in-memory thread data (tags etc.)
+        th_map: dict[int, discord.Thread] = {}
+        if all_threads:
+            th_map = {t.id: t for t in all_threads}
 
         threads = []
         for th_dir in sorted(ch_dir.iterdir()):
@@ -289,12 +297,28 @@ class Archiver:
             thread_id = th_dir.name
             md_files = sorted(th_dir.glob("*.md"))
             thread_name = self._read_thread_name(th_dir) if md_files else thread_id
+
+            # Rich metadata from first message frontmatter
+            meta = self._read_first_message_meta(th_dir) if md_files else {}
+            first_image = meta.get("first_image")
+            if first_image:
+                first_image["channel_id"] = str(channel.id)
+
+            # Tags from in-memory thread object
+            tags = []
+            if int(thread_id) in th_map:
+                tags = _extract_tags(th_map[int(thread_id)])
+
             threads.append({
                 "id": thread_id,
                 "name": thread_name,
                 "folder": thread_id,
                 "message_count": len(md_files),
                 "updated": "",
+                "author": meta.get("author", ""),
+                "timestamp": meta.get("timestamp", ""),
+                "first_image": first_image,
+                "tags": tags,
             })
 
         index_path = ch_dir / "index.html"
@@ -356,7 +380,7 @@ class Archiver:
                 all_threads = await self._collect_threads(ch)
                 for thread in all_threads:
                     await self.archive_thread(thread, session, tree)
-                self._write_channel_index(ch, tree)
+                self._write_channel_index(ch, tree, all_threads)
         self._write_home_index(tree)
 
     @staticmethod
@@ -487,3 +511,25 @@ class Archiver:
             if name:
                 return str(name)
         return th_dir.name
+
+    @staticmethod
+    def _read_first_message_meta(th_dir: Path) -> dict:
+        """Read author, timestamp, and first image attachment info from the earliest .md frontmatter."""
+        md_files = sorted(th_dir.glob("*.md"))
+        if not md_files:
+            return {}
+        fm = _read_frontmatter(md_files[0])
+        first_image = None
+        attachments = fm.get("attachments") or []
+        for att in attachments:
+            if att.get("is_image"):
+                first_image = {
+                    "id": str(att["id"]),
+                    "filename": att["filename"],
+                }
+                break
+        return {
+            "author": fm.get("author", ""),
+            "timestamp": fm.get("timestamp", ""),
+            "first_image": first_image,
+        }
