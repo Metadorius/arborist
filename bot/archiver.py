@@ -198,36 +198,134 @@ class Archiver:
 
     def _tree_or_build(self, tree: list | None = None) -> list:
         return tree if tree is not None else self._build_tree()
+    def check_stale(self) -> dict:
+        """Check which pages are stale relative to their source files.
 
-    def rebuild_thread_index(
-        self, thread: discord.Thread, tree: list | None = None
-    ) -> None:
-        """Re-render a thread's HTML page from .md files on disk."""
-        self._write_thread_index(thread, tree)
+        Returns a dict with keys ``threads``, ``channels``, ``home``, ``site_files``
+        — each a list of paths that need rebuilding.
+        """
+        stale_threads: list[Path] = []
+        stale_channels: list[Path] = []
+        home_stale = False
+        site_stale: list[Path] = []
 
-    def _write_thread_index(
-        self, thread: discord.Thread, tree: list | None = None
-    ) -> None:
-        """Generate the thread page (index.html) from .md files on disk."""
+        # Collect template and bot source mtimes: any code change means all HTML is stale
+        template_mtimes: list[float] = []
+        src_dirs = [
+            _TEMPLATES_DIR,  # Jinja2 templates
+            _TEMPLATES_DIR.parent,  # bot/ Python sources
+        ]
+        for src_dir in src_dirs:
+            if src_dir.exists():
+                for f in src_dir.rglob("*.j2" if src_dir == _TEMPLATES_DIR else "*.py"):
+                    template_mtimes.append(f.stat().st_mtime)
+
+        # Collect site file mtimes (CSS etc.)
+        site_dir = _TEMPLATES_DIR.parent.parent / "site"
+        site_mtimes: dict[str, float] = {}
+        if site_dir.exists():
+            for f in site_dir.iterdir():
+                if f.is_file():
+                    site_mtimes[f.name] = f.stat().st_mtime
+                    out_f = self._output / f.name
+                    if out_f.exists() and out_f.stat().st_mtime < f.stat().st_mtime:
+                        site_stale.append(out_f)
+                    elif not out_f.exists():
+                        site_stale.append(out_f)
+
+        if not self._channels_dir.exists():
+            return {
+                "threads": stale_threads,
+                "channels": stale_channels,
+                "home": False,
+                "site_files": site_stale,
+            }
+
+        max_template = max(template_mtimes) if template_mtimes else 0
+
+        channel_deps: dict[Path, float] = {}  # path -> max dependency mtime
+        home_max_dep = 0.0
+
+        for guild_dir in sorted(self._channels_dir.iterdir()):
+            if not guild_dir.is_dir():
+                continue
+            for ch_dir in sorted(guild_dir.iterdir()):
+                if not ch_dir.is_dir():
+                    continue
+                ch_index = ch_dir / "index.html"
+                ch_max_dep = max_template
+
+                for th_dir in sorted(ch_dir.iterdir()):
+                    if not th_dir.is_dir():
+                        continue
+                    th_index = th_dir / "index.html"
+                    md_files = sorted(th_dir.glob("*.md"))
+                    if not md_files:
+                        continue
+
+                    # Thread: check .md files + templates
+                    max_md = max(f.stat().st_mtime for f in md_files)
+                    th_dep = max(max_md, max_template)
+
+                    if not th_index.exists() or th_index.stat().st_mtime < th_dep:
+                        stale_threads.append(th_index)
+
+                    # Track thread mtime for channel dependency
+                    if th_index.exists():
+                        ch_max_dep = max(ch_max_dep, th_index.stat().st_mtime, max_md)
+
+                # Channel: depends on its thread pages + templates
+                if ch_index.exists():
+                    if ch_index.stat().st_mtime < ch_max_dep:
+                        stale_channels.append(ch_index)
+                    home_max_dep = max(home_max_dep, ch_index.stat().st_mtime)
+                channel_deps[ch_index] = ch_max_dep
+
+        # Home page
+        home_index = self._output / "index.html"
+        if home_index.exists() and home_index.stat().st_mtime < home_max_dep:
+            home_stale = True
+
+        return {
+            "threads": stale_threads,
+            "channels": stale_channels,
+            "home": home_stale,
+            "site_files": site_stale,
+        }
+
+    def rebuild_all(self) -> dict:
+        """Rebuild all stale HTML pages from disk. Returns same shape as :meth:`check_stale`."""
+        result = self.check_stale()
+
+        for th_index in result["threads"]:
+            self._render_thread(th_index.parent, self._build_tree(), tags=[])
+        for ch_index in result["channels"]:
+            self._render_channel(ch_index.parent, self._build_tree())
+        if result["home"]:
+            self._write_home_index()
+
+        return result
+
+    # ------------------------------------------------------------------
+    # Core renderers (path-based, no Discord dependency)
+    # ------------------------------------------------------------------
+
+    def _render_thread(self, th_dir: Path, tree: list, *, tags: list[dict]) -> None:
+        """Render a single thread page from .md files on disk."""
         from .markdown_renderer import parse_frontmatter
 
-        channel = thread.parent
-        if channel is None:
-            channel_name = str(thread.parent_id)
-        elif isinstance(channel, discord.ForumChannel):
-            channel_name = channel.name
-        else:
-            channel_name = str(channel.id)
+        md_files = sorted(th_dir.glob("*.md"))
+        if not md_files:
+            return
 
-        guild_id = self._guild_id(thread)
-        thread_dir = self._channels_dir / guild_id / str(thread.parent_id) / str(thread.id)
-        thread_dir.mkdir(parents=True, exist_ok=True)
+        channel_id = th_dir.parent.name
+        guild_id = th_dir.parent.parent.name
+        index_path = th_dir / "index.html"
 
         msg_data = []
-        for md_path in sorted(thread_dir.glob("*.md")):
+        for md_path in md_files:
             text = md_path.read_text(encoding="utf-8")
             fm = parse_frontmatter(text)
-            # Extract markdown body (everything after second ---)
             try:
                 body = text.split("---", 2)[2].lstrip("\n")
             except IndexError:
@@ -237,7 +335,7 @@ class Archiver:
             for att in fm.get("attachments") or []:
                 attachments.append({
                     "filename": att["filename"],
-                    "channel_id": str(thread.parent_id),
+                    "channel_id": channel_id,
                     "id": str(att["id"]),
                     "is_image": att.get("is_image", False),
                     "size": att.get("size", 0),
@@ -254,23 +352,73 @@ class Archiver:
                 "reactions": fm.get("reactions") or [],
             })
 
+        thread_name = self._read_thread_name(th_dir)
+        channel_name = self._read_channel_name(th_dir.parent)
         tmpl = self._env.get_template("thread.html.j2")
-        guild_id = self._guild_id(thread)
-        thread_dir = self._channels_dir / guild_id / str(thread.parent_id) / str(thread.id)
-        thread_dir.mkdir(parents=True, exist_ok=True)
-        index_path = thread_dir / "index.html"
         html = tmpl.render(
             root=self._root(index_path, self._output),
-            tree=self._tree_or_build(tree),
-            thread={
-                "id": str(thread.id),
-                "name": thread.name,
-                "tags": _extract_tags(thread),
-            },
-            channel={"id": str(thread.parent_id), "name": channel_name, "guild_id": guild_id},
+            tree=tree,
+            thread={"id": th_dir.name, "name": thread_name, "tags": tags},
+            channel={"id": channel_id, "name": channel_name, "guild_id": guild_id},
             messages=msg_data,
         )
         index_path.write_text(html, encoding="utf-8")
+
+    def _render_channel(self, ch_dir: Path, tree: list) -> None:
+        """Render a single channel page from .md files on disk."""
+        guild_id = ch_dir.parent.name
+        channel_id = ch_dir.name
+        channel_name = self._read_channel_name(ch_dir)
+        index_path = ch_dir / "index.html"
+
+        threads = []
+        for th_dir in sorted(ch_dir.iterdir()):
+            if not th_dir.is_dir():
+                continue
+            md_files = sorted(th_dir.glob("*.md"))
+            th_name = self._read_thread_name(th_dir) if md_files else th_dir.name
+            meta = self._read_first_message_meta(th_dir) if md_files else {}
+            first_image = meta.get("first_image")
+            if first_image:
+                first_image["channel_id"] = channel_id
+
+            threads.append({
+                "id": th_dir.name,
+                "name": th_name,
+                "folder": th_dir.name,
+                "message_count": len(md_files),
+                "updated": "",
+                "author": meta.get("author", ""),
+                "timestamp": meta.get("timestamp", ""),
+                "first_image": first_image,
+                "tags": [],
+            })
+
+        tmpl = self._env.get_template("channel.html.j2")
+        html = tmpl.render(
+            root=self._root(index_path, self._output),
+            tree=tree,
+            channel={"id": channel_id, "name": channel_name, "thread_count": len(threads)},
+            threads=threads,
+            thread_id=None,
+        )
+        index_path.write_text(html, encoding="utf-8")
+
+        if self._git:
+            self._git.mark_changed()
+
+    # ------------------------------------------------------------------
+    # Discord-aware wrappers (resolve paths, extract tags from live objects)
+    # ------------------------------------------------------------------
+
+    def _write_thread_index(
+        self, thread: discord.Thread, tree: list | None = None
+    ) -> None:
+        """Generate the thread page (index.html) from .md files on disk."""
+        guild_id = self._guild_id(thread)
+        th_dir = self._channels_dir / guild_id / str(thread.parent_id) / str(thread.id)
+        th_dir.mkdir(parents=True, exist_ok=True)
+        self._render_thread(th_dir, self._tree_or_build(tree), tags=_extract_tags(thread))
 
     def _write_channel_index(
         self, channel: discord.ForumChannel, tree: list | None = None,
@@ -287,20 +435,18 @@ class Archiver:
             th_map = {t.id: t for t in all_threads}
 
         threads = []
-        for th_dir in sorted(ch_dir.iterdir()):
-            if not th_dir.is_dir():
+        for th_dir_inner in sorted(ch_dir.iterdir()):
+            if not th_dir_inner.is_dir():
                 continue
-            thread_id = th_dir.name
-            md_files = sorted(th_dir.glob("*.md"))
-            thread_name = self._read_thread_name(th_dir) if md_files else thread_id
+            thread_id = th_dir_inner.name
+            md_files = sorted(th_dir_inner.glob("*.md"))
+            thread_name = self._read_thread_name(th_dir_inner) if md_files else thread_id
 
-            # Rich metadata from first message frontmatter
-            meta = self._read_first_message_meta(th_dir) if md_files else {}
+            meta = self._read_first_message_meta(th_dir_inner) if md_files else {}
             first_image = meta.get("first_image")
             if first_image:
                 first_image["channel_id"] = str(channel.id)
 
-            # Tags from in-memory thread object
             tags = []
             if int(thread_id) in th_map:
                 tags = _extract_tags(th_map[int(thread_id)])

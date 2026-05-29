@@ -42,6 +42,7 @@ class ArboristClient(discord.Client):
         self._tree.add_command(_make_archive_command(self._archiver, get_config().channel_ids))
         for cmd in _make_config_commands():
             self._tree.add_command(cmd)
+        self._tree.add_command(_make_rebuild_command(self._archiver))
         self._flusher_task = asyncio.create_task(self._git.run_flusher())
 
     async def close(self) -> None:
@@ -69,6 +70,18 @@ class ArboristClient(discord.Client):
             await self._tree.sync()
             self._synced = True
         _copy_site_files(get_site_dir(), self._output)
+
+        # Check for stale pages
+        stale = self._archiver.check_stale()
+        stale_count = (len(stale["threads"]) + len(stale["channels"])
+                       + (1 if stale["home"] else 0) + len(stale["site_files"]))
+        if stale_count:
+            logger.warning(
+                "%d page(s) are stale — run /rebuild to regenerate",
+                stale_count,
+            )
+        else:
+            logger.info("All pages up to date")
 
         for cid in get_config().channel_ids:
             ch = self.get_channel(int(cid))
@@ -141,7 +154,7 @@ class ArboristClient(discord.Client):
         # when the cache was cold, so guard on the last id to avoid dupes).
         if not messages or messages[-1].id != message.id:
             messages.append(message)
-        self._archiver.rebuild_thread_index(thread)
+        self._archiver._write_thread_index(thread)
 
     async def on_message_edit(self, before: discord.Message, after: discord.Message) -> None:
         thread = after.channel if isinstance(after.channel, discord.Thread) else None
@@ -160,7 +173,7 @@ class ArboristClient(discord.Client):
             if m.id == after.id:
                 messages[i] = after
                 break
-        self._archiver.rebuild_thread_index(thread)
+        self._archiver._write_thread_index(thread)
 
     async def on_message_delete(self, message: discord.Message) -> None:
         channel = message.channel
@@ -177,7 +190,7 @@ class ArboristClient(discord.Client):
         cached = self._thread_msgs.get(channel.id)
         if cached is not None:
             self._thread_msgs[channel.id] = [m for m in cached if m.id != message.id]
-            self._archiver.rebuild_thread_index(channel)
+            self._archiver._write_thread_index(channel)
 
     async def on_thread_update(self, before: discord.Thread, after: discord.Thread) -> None:
         if not self._is_watched(after.parent_id):
@@ -185,7 +198,7 @@ class ArboristClient(discord.Client):
         if before.name != after.name:
             logger.info("Thread renamed: %s -> %s", before.name, after.name)
             messages = await self._get_thread_messages(after)
-            self._archiver.rebuild_thread_index(after)
+            self._archiver._write_thread_index(after)
 
 
 # ------------------------------------------------------------------
@@ -260,6 +273,31 @@ def _make_config_commands() -> list[app_commands.Command]:
         await interaction.response.send_message(f"Git remote set to `{url}`.", ephemeral=True)
 
     return [config_show, config_watch, config_unwatch, config_git_remote]
+
+
+def _make_rebuild_command(archiver: Archiver) -> app_commands.Command:
+    @app_commands.command(name="rebuild", description="Rebuild stale HTML pages from existing archives")
+    @app_commands.default_permissions(manage_guild=True)
+    @app_commands.guild_only()
+    async def rebuild(interaction: discord.Interaction) -> None:
+        await interaction.response.defer(ephemeral=True)
+        stale = archiver.check_stale()
+        t = len(stale["threads"])
+        c = len(stale["channels"])
+        h = 1 if stale["home"] else 0
+        s = len(stale["site_files"])
+        total = t + c + h + s
+        if total == 0:
+            await interaction.followup.send("✅ All pages are up to date.", ephemeral=True)
+            return
+        archiver.rebuild_all()
+        await interaction.followup.send(
+            f"✅ Rebuilt {total} page(s): {t} thread(s), {c} channel(s), "
+            f"{'home, ' if h else ''}{s} site file(s).",
+            ephemeral=True,
+        )
+
+    return rebuild
 
 
 def _copy_site_files(site_dir: Path, output_dir: Path) -> None:
