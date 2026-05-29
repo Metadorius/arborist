@@ -176,7 +176,7 @@ a:hover { color: var(--accent-hover); }
 .tree-channel-link {
   display: block;
   padding: var(--sp-2) var(--sp-3);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-md);
   font-weight: var(--fw-semibold);
   color: var(--text);
   transition: color 0.15s;
@@ -189,7 +189,7 @@ a:hover { color: var(--accent-hover); }
   display: block;
   margin-left: var(--sp-4);
   padding: var(--sp-1) var(--sp-2) var(--sp-1) var(--sp-4);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-base);
   color: var(--text-muted);
   border-left: 1px solid var(--border);
   transition: color 0.15s;
