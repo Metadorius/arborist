@@ -113,6 +113,12 @@ a:hover { color: var(--accent-hover); }
   flex: 1;
   padding: var(--sp-6);
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.content-body {
+  flex: 1;
 }
 
 /* ============================================================
