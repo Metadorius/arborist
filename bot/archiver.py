@@ -507,6 +507,29 @@ class Archiver:
             self._git.mark_changed()
 
     # ------------------------------------------------------------------
+    # Static pages (legal, privacy, etc.)
+    # ------------------------------------------------------------------
+
+    # Registry: list of {slug, title, template}
+    STATIC_PAGES: list[dict] = [
+        {"slug": "legal", "title": "Legal", "template": "legal.html.j2"},
+    ]
+
+    def write_static_pages(self) -> None:
+        """Generate all registered static pages to the output directory."""
+        self._output.mkdir(parents=True, exist_ok=True)
+        for page in self.STATIC_PAGES:
+            slug = page["slug"]
+            out_path = self._output / f"{slug}.html"
+            tmpl = self._env.get_template(page["template"])
+            html = tmpl.render(
+                root=self._root(out_path, self._output),
+                tree=self._build_tree(),
+            )
+            out_path.write_text(html, encoding="utf-8")
+            logger.debug("Wrote static page: %s", out_path)
+
+    # ------------------------------------------------------------------
     # Internal: helpers
     # ------------------------------------------------------------------
 

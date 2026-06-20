@@ -409,6 +409,7 @@ def generate_fake_site(output_dir: Path, copy_css: bool = True):
         with patch("bot.archiver.download_all_attachments", return_value=[]):
             archiver = Archiver(client, output_dir)
             asyncio.run(archiver.archive_all_from_ids(list(client._channels.keys())))
+            archiver.write_static_pages()
     finally:
         builtins.isinstance = orig
 

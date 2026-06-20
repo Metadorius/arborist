@@ -70,6 +70,7 @@ class ArboristClient(discord.Client):
             await self._tree.sync()
             self._synced = True
         _copy_site_files(get_site_dir(), self._output)
+        self._archiver.write_static_pages()
 
         # Check for stale pages
         stale = self._archiver.check_stale()
@@ -291,6 +292,7 @@ def _make_rebuild_command(archiver: Archiver) -> app_commands.Command:
             await interaction.followup.send("✅ All pages are up to date.", ephemeral=True)
             return
         archiver.rebuild_all()
+        archiver.write_static_pages()
         await interaction.followup.send(
             f"✅ Rebuilt {total} page(s): {t} thread(s), {c} channel(s), "
             f"{'home, ' if h else ''}{s} site file(s).",
